@@ -1,1 +1,0 @@
-// Firebase config real se mantiene externo
