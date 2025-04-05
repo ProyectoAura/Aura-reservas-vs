@@ -1,0 +1,16 @@
+{
+  "name": "aura-reservas",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "13.4.12",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "xlsx": "^0.18.5",
+    "firebase": "^9.22.0"
+  }
+}
