@@ -1,0 +1,1 @@
+// admin.js funcional debe agregarse aquí
