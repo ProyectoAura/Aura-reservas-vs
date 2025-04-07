@@ -26,18 +26,9 @@ export default function Reservas() {
 
   const setFechaRapida = (tipo) => {
     const hoy = new Date();
-    let fecha;
-    if (tipo === "hoy") {
-      fecha = hoy;
-    } else if (tipo === "manana") {
-      fecha = new Date(hoy);
-      fecha.setDate(hoy.getDate() + 1);
-    } else if (tipo === "semana") {
-      const dia = hoy.getDay();
-      const diferencia = dia === 0 ? -6 : 1 - dia;
-      fecha = new Date(hoy);
-      fecha.setDate(hoy.getDate() + diferencia);
-    }
+    let fecha = new Date(hoy);
+    if (tipo === "manana") fecha.setDate(hoy.getDate() + 1);
+    if (tipo === "semana") fecha.setDate(hoy.getDate() - hoy.getDay() + 1);
     const yyyy = fecha.getFullYear();
     const mm = String(fecha.getMonth() + 1).padStart(2, '0');
     const dd = String(fecha.getDate()).padStart(2, '0');
@@ -49,9 +40,7 @@ export default function Reservas() {
     const nacimiento = new Date(fechaNacimiento);
     let edad = hoy.getFullYear() - nacimiento.getFullYear();
     const m = hoy.getMonth() - nacimiento.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
-      edad--;
-    }
+    if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
     return edad;
   };
 
@@ -94,109 +83,84 @@ export default function Reservas() {
     }
   };
 
-  
-
   return (
-    <div style={{
-      minHeight: "100vh",
-      backgroundColor: "#0A1034",
-      color: "#EFE4CF",
-      padding: "2rem",
-      display: "flex",
-      flexDirection: "column",
-      gap: "1rem",
-      maxWidth: "600px",
-      margin: "0 auto",
-      fontFamily: "sans-serif"
-    }}>
-      <h1 style={{
-        fontSize: "2.5rem",
-        textAlign: "center",
-        color: "#D3C6A3",
-        marginBottom: "1.5rem",
-        letterSpacing: "2px"
-      }}>
-        BIENVENIDOS
-      </h1>
+    <div style={estiloContenedor}>
+      <h1 style={estiloTitulo}>BIENVENIDOS</h1>
 
-      Información personal:
-      <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre y Apellido"
-        style={estiloInput} />
-      <input name="dni" value={form.dni} onChange={handleChange} placeholder="DNI"
-        style={estiloInput} />
-      <input name="nacimiento" value={form.nacimiento} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()}
-        placeholder="Fecha de nacimiento" style={estiloInput} />
-              Información de contacto:
-      <input name="email" value={form.email} onChange={handleChange} type="email" placeholder="Email"
-        style={estiloInput} />
-      <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono"
-        style={estiloInput} />
-              Confirmar reserva:
+      <span>Información personal:</span>
+      <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre y Apellido" style={estiloInput} />
+      <input name="dni" value={form.dni} onChange={handleChange} placeholder="DNI" style={estiloInput} />
+      <input name="nacimiento" value={form.nacimiento} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()} placeholder="Fecha de nacimiento" style={estiloInput} />
 
+      <span>Información de contacto:</span>
+      <input name="email" value={form.email} onChange={handleChange} type="email" placeholder="Email" style={estiloInput} />
+      <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" style={estiloInput} />
+
+      <span>Confirmar reserva:</span>
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
         <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
         <button onClick={() => setFechaRapida("semana")} style={estiloBotonSecundario}>Esta semana</button>
       </div>
 
-      <input name="fecha" value={form.fecha} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()}
-        placeholder="Fecha y hora de reserva" style={estiloInput} />
+      <input name="fecha" value={form.fecha} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()} placeholder="Fecha de reserva" style={estiloInput} />
 
-      <select
-  name="horario"
-  value={form.horario}
-  onChange={handleChange}
-  style={{ ...estiloInput, color: '#2C1B0F"' }}
->
-        <option value="" disabled hidden style={{ color: '#EFE4CF' }}>Seleccioná un horario</option>
-        <option value="19:00">19:00</option>
-        <option value="19:30">19:30</option>
-        <option value="20:00">20:00</option>
-        <option value="20:30">20:30</option>
-        <option value="21:00">21:00</option>
+      <select name="horario" value={form.horario} onChange={handleChange} style={estiloInput}>
+        <option value="" disabled hidden>Seleccioná un horario</option>
+        {['19:00', '19:30', '20:00', '20:30', '21:00'].map((hora) => (
+          <option key={hora} value={hora}>{hora}</option>
+        ))}
       </select>
 
-      <select
-  name="personas"
-  value={form.personas}
-  onChange={handleChange}
-  style={estiloInput}
->
-  <option value="" disabled hidden style={{ color: '#EFE4CF' }}>Seleccioná cantidad</option>
-  {[...Array(10)].map((_, i) => (
-    <option key={i + 1} value={i + 1}>{i + 1}</option>
-  ))}
-  <option value="evento_privado">Evento privado</option>
-</select>
+      <select name="personas" value={form.personas} onChange={handleChange} style={estiloInput}>
+        <option value="" disabled hidden>Seleccioná cantidad</option>
+        {[...Array(10)].map((_, i) => (
+          <option key={i + 1} value={i + 1}>{i + 1}</option>
+        ))}
+        <option value="evento_privado">Evento privado</option>
+      </select>
 
-{form.personas === "evento_privado" && (
-  <div style={{ color: "#EFE4CF", fontSize: "0.9rem" }}>
-    Contactarse por <a href="https://wa.me/549XXXXXXXXXX" target="_blank" rel="noopener noreferrer" style={{ color: "#D3C6A3", textDecoration: "underline" }}>WhatsApp</a> para más detalles.
-  </div>
-)}
-
-            
-
-  
+      {form.personas === "evento_privado" && (
+        <div style={{ color: "#EFE4CF", fontSize: "0.9rem" }}>
+          Contactarse por <a href="https://wa.me/549XXXXXXXXXX" target="_blank" rel="noopener noreferrer" style={{ color: "#D3C6A3", textDecoration: "underline" }}>WhatsApp</a> para más detalles.
+        </div>
+      )}
 
       {seccion2RestriccionesActiva && (
-  <input name="restricciones" value={form.restricciones} onChange={handleChange}
-    placeholder="Restricciones alimenticias / Alergias (opcional)"
-    style={estiloInput} />
-)}
+        <input name="restricciones" value={form.restricciones} onChange={handleChange} placeholder="Restricciones alimenticias / Alergias (opcional)" style={estiloInput} />
+      )}
 
-      <button onClick={guardarReserva} style={estiloBoton}>
-        Confirmar Reserva
-      </button>
+      <button onClick={guardarReserva} style={estiloBoton}>Confirmar Reserva</button>
     </div>
   );
 }
+
+const estiloContenedor = {
+  minHeight: "100vh",
+  backgroundColor: "#0A1034",
+  color: "#EFE4CF",
+  padding: "2rem",
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+  maxWidth: "600px",
+  margin: "0 auto",
+  fontFamily: "sans-serif"
+};
+
+const estiloTitulo = {
+  fontSize: "2.5rem",
+  textAlign: "center",
+  color: "#D3C6A3",
+  marginBottom: "1.5rem",
+  letterSpacing: "2px"
+};
 
 const estiloInput = {
   padding: "0.8rem",
   borderRadius: "12px",
   border: "1px solid #D3C6A3",
-  backgroundColor: "#EFE4CF", // nuevo azul distinto al fondo (#0A1034)
+  backgroundColor: "#EFE4CF",
   color: "#2C1B0F",
   fontSize: "1rem"
 };

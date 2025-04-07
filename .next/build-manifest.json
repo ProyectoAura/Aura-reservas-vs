@@ -22,16 +22,6 @@
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/admin/seccion2": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/admin/seccion2.js"
-    ],
-    "/admin/seccion4": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/admin/seccion4.js"
-    ],
     "/reservas": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
