@@ -112,7 +112,7 @@ const adminParams = {
 
       emailjs.send(
   'service_6ds4u72',
-  'template_reserva01',
+  'template_1138upp',
   templateParams,
   'X8oYjznwltzuEDFa8'
 ).then((result) => {
