@@ -1,19 +1,17 @@
 {
   "name": "aura-reservas",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
+    "@emailjs/browser": "^3.11.0",
+    "firebase": "^10.7.1",
     "next": "13.4.12",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "firebase": "^9.22.0",
-    "xlsx": "^0.18.5",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8.4.21",
-    "autoprefixer": "^10.4.14"
+    "react-dom": "18.2.0"
   }
 }
