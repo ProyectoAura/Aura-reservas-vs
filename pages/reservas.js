@@ -90,24 +90,47 @@ export default function Reservas() {
       });
 
       const templateParams = {
-        to_name: form.nombre,
-        to_email: form.email,
-        sector: form.sector,
-        fecha: form.fecha,
-        horario: form.horario,
-        personas: form.personas
-      };
+  to_name: form.nombre,
+  to_email: form.email,
+  sector: form.sector,
+  fecha: form.fecha,
+  horario: form.horario,
+  personas: form.personas
+};
+
+const adminParams = {
+  to_name: "Recepcion Aura",
+  to_email: "recepcion@aura.com", // reemplazá por el real
+  sector: form.sector,
+  fecha: form.fecha,
+  horario: form.horario,
+  personas: form.personas,
+  nombre_cliente: form.nombre,
+  telefono: form.telefono,
+  email_cliente: form.email
+};
 
       emailjs.send(
-        'service_6ds4u72',
-        'template_reserva01',
-        templateParams,
-        'X8oYjznwltzuEDFa8'
-      ).then((result) => {
-        console.log('Email enviado ✅', result.text);
-      }, (error) => {
-        console.error('Error al enviar email ❌', error);
-      });
+  'service_6ds4u72',
+  'template_reserva01',
+  templateParams,
+  'X8oYjznwltzuEDFa8'
+).then((result) => {
+  console.log('Email al cliente enviado ✅', result.text);
+}, (error) => {
+  console.error('Error al enviar email al cliente ❌', error);
+});
+
+emailjs.send(
+  'service_6ds4u72',
+  'template_reserva_admin',
+  adminParams,
+  'X8oYjznwltzuEDFa8'
+).then((result) => {
+  console.log('Email al recepcionista enviado ✅', result.text);
+}, (error) => {
+  console.error('Error al enviar email al recepcionista ❌', error);
+});
 
       alert("¡Reserva confirmada!");
       setForm({ nombre: "", dni: "", nacimiento: "", email: "", telefono: "", sector: "", restricciones: "", fecha: "", horario: "", personas: "" });
@@ -130,7 +153,13 @@ export default function Reservas() {
       <input name="email" value={form.email} onChange={handleChange} type="email" placeholder="Email" style={estiloInput} />
       <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" style={estiloInput} />
 
-      Confirmación de reserva:
+      <span>Confirmación de reserva:</span>
+
+<div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+  <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
+  <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
+  <button onClick={() => setFechaRapida("semana")} style={estiloBotonSecundario}>Esta semana</button>
+</div>
 
 <input name="fecha" value={form.fecha} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()} placeholder="Fecha de reserva" style={estiloInput} />
 
