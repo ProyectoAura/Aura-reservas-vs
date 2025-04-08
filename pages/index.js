@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import Cookies from "js-cookie"; // Solo un import de js-cookie ✅
 
 export default function Home() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function Home() {
   const accederAdmin = () => {
     if (password === process.env.NEXT_PUBLIC_ADMIN_PASS) {
       localStorage.setItem("adminAutorizado", "true");
+      Cookies.set("adminAutorizado", "true");
       router.push("/admin");
     } else {
       alert("Contraseña incorrecta");
@@ -25,10 +27,8 @@ export default function Home() {
   }, [showAdmin]);
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      if (showAdmin && password !== "") {
-        accederAdmin();
-      }
+    if (e.key === "Enter" && showAdmin && password !== "") {
+      accederAdmin();
     }
   };
 
@@ -48,8 +48,12 @@ export default function Home() {
         <img src="/logo-aura.png" alt="AURA" style={estilos.logoImg} />
 
         <div style={estilos.botones}>
-          <button style={estilos.boton} onClick={() => router.push("/reservas")}>Reservas</button>
-          <button style={estilos.boton} onClick={() => router.push("/menu")}>Menú</button>
+          <button style={estilos.boton} onClick={() => router.push("/reservas")}>
+            Reservas
+          </button>
+          <button style={estilos.boton} onClick={() => router.push("/menu")}>
+            Menú
+          </button>
 
           {showAdmin && (
             <div style={estilos.adminBox}>
@@ -77,11 +81,7 @@ export default function Home() {
           alt="admin"
           style={estilos.candado}
           onClick={toggleAdminBox}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              toggleAdminBox();
-            }
-          }}
+          onKeyDown={(e) => e.key === "Enter" && toggleAdminBox()}
           tabIndex={0}
           title="Acceso administrador"
         />
@@ -168,16 +168,12 @@ const estilos = {
   },
 };
 
-// Agrega este estilo global en tu CSS si querés el efecto al presionar:
+// Estilo global para efecto al presionar botones:
 if (typeof window !== 'undefined') {
   document.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      e.target.style.transform = 'scale(0.97)';
-    }
+    if (e.target.tagName === 'BUTTON') e.target.style.transform = 'scale(0.97)';
   });
   document.addEventListener('mouseup', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      e.target.style.transform = 'scale(1)';
-    }
+    if (e.target.tagName === 'BUTTON') e.target.style.transform = 'scale(1)';
   });
 }
