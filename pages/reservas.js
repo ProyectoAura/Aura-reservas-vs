@@ -60,8 +60,8 @@ export default function Reservas() {
   const sectoresDisponibles = () => {
     const cantidad = parseInt(form.personas);
     const sectores = [];
-    if (cantidad >= 1) sectores.push("Terraza descubierta");
-    if (cantidad >= 4) sectores.push("Terraza semicubierta");
+    if (cantidad >= 1) sectores.push("Terraza Descubierta");
+    if (cantidad >= 4) sectores.push("Terraza Semicubierta");
     if (cantidad >= 6) sectores.push("Box Fuego");
     return sectores;
   };
