@@ -10,7 +10,8 @@ export default function Home() {
   const inputRef = useRef(null);
 
   const accederAdmin = () => {
-    if (password === "Aura2025") {
+    if (password === process.env.NEXT_PUBLIC_ADMIN_PASS) {
+      localStorage.setItem("adminAutorizado", "true");
       router.push("/admin");
     } else {
       alert("Contraseña incorrecta");
