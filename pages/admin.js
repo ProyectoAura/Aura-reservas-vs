@@ -1,8 +1,17 @@
 // pages/admin.js
+import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 
 export default function Admin() {
   const router = useRouter();
+
+  // Protección: redirige al inicio si no está autorizado
+  useEffect(() => {
+    const autorizado = localStorage.getItem("adminAutorizado");
+    if (autorizado !== "true") {
+      router.push("/");
+    }
+  }, []);
 
   const secciones = [
     { nombre: "Información y Estadisticas diarias", ruta: "/admin/seccion1", emoji: "📊" },
