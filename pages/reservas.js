@@ -30,7 +30,16 @@ export default function Reservas() {
     const hoy = new Date();
     let fecha = new Date(hoy);
     if (tipo === "manana") fecha.setDate(hoy.getDate() + 1);
-    if (tipo === "semana") fecha.setDate(hoy.getDate() - hoy.getDay() + 1);
+    if (tipo === "viernes") {
+      const diaActual = hoy.getDay();
+      const diferencia = (5 - diaActual + 7) % 7;
+      fecha.setDate(hoy.getDate() + diferencia);
+    }
+    if (tipo === "sabado") {
+      const diaActual = hoy.getDay();
+      const diferencia = (6 - diaActual + 7) % 7;
+      fecha.setDate(hoy.getDate() + diferencia);
+    }
     const yyyy = fecha.getFullYear();
     const mm = String(fecha.getMonth() + 1).padStart(2, '0');
     const dd = String(fecha.getDate()).padStart(2, '0');
@@ -51,8 +60,8 @@ export default function Reservas() {
   const sectoresDisponibles = () => {
     const cantidad = parseInt(form.personas);
     const sectores = [];
-    if (cantidad >= 1) sectores.push("Terraza Descubierta");
-    if (cantidad >= 4) sectores.push("Terraza Semicubierta");
+    if (cantidad >= 1) sectores.push("Terraza descubierta");
+    if (cantidad >= 4) sectores.push("Terraza semicubierta");
     if (cantidad >= 6) sectores.push("Box Fuego");
     return sectores;
   };
@@ -158,11 +167,12 @@ export default function Reservas() {
   />
 </div>
 
-      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-        <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
-        <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
-        <button onClick={() => setFechaRapida("semana")} style={estiloBotonSecundario}>Esta semana</button>
-      </div>
+      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem", justifyContent: "center" }}>
+  <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
+  <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
+  <button onClick={() => setFechaRapida("viernes")} style={estiloBotonSecundario}>Viernes</button>
+  <button onClick={() => setFechaRapida("sabado")} style={estiloBotonSecundario}>Sábado</button>
+</div>
 
       <select name="horario" value={form.horario} onChange={handleChange} style={estiloInput}>
         <option value="" disabled hidden>Seleccioná un horario</option>
