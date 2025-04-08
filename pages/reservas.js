@@ -91,47 +91,28 @@ export default function Reservas() {
       });
 
       const templateParams = {
-  to_name: form.nombre,
-  to_email: form.email,
-  sector: form.sector,
-  fecha: form.fecha,
-  horario: form.horario,
-  personas: form.personas
-};
+        to_name: form.nombre,
+        to_email: form.email,
+        sector: form.sector,
+        fecha: form.fecha,
+        horario: form.horario,
+        personas: form.personas
+      };
 
-const adminParams = {
-  to_name: "Recepcion Aura",
-  to_email: "recepcion@aura.com", // reemplazá por el real
-  sector: form.sector,
-  fecha: form.fecha,
-  horario: form.horario,
-  personas: form.personas,
-  nombre_cliente: form.nombre,
-  telefono: form.telefono,
-  email_cliente: form.email
-};
+      const adminParams = {
+        to_name: "Recepcion Aura",
+        to_email: "recepcion@aura.com",
+        sector: form.sector,
+        fecha: form.fecha,
+        horario: form.horario,
+        personas: form.personas,
+        nombre_cliente: form.nombre,
+        telefono: form.telefono,
+        email_cliente: form.email
+      };
 
-      emailjs.send(
-  'service_6ds4u72',
-  'template_1138upp',
-  templateParams,
-  'X8oYjznwltzuEDFa8'
-).then((result) => {
-  console.log('Email al cliente enviado ✅', result.text);
-}, (error) => {
-  console.error('Error al enviar email al cliente ❌', error);
-});
-
-emailjs.send(
-  'service_6ds4u72',
-  'template_e0y60yf',
-  adminParams,
-  'X8oYjznwltzuEDFa8'
-).then((result) => {
-  console.log('Email al recepcionista enviado ✅', result.text);
-}, (error) => {
-  console.error('Error al enviar email al recepcionista ❌', error);
-});
+      emailjs.send('service_6ds4u72', 'template_1138upp', templateParams, 'X8oYjznwltzuEDFa8');
+      emailjs.send('service_6ds4u72', 'template_e0y60yf', adminParams, 'X8oYjznwltzuEDFa8');
 
       alert("¡Reserva confirmada!");
       setForm({ nombre: "", dni: "", nacimiento: "", email: "", telefono: "", sector: "", restricciones: "", fecha: "", horario: "", personas: "" });
@@ -148,45 +129,53 @@ emailjs.send(
       <span>Información personal:</span>
       <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre y Apellido" style={estiloInput} />
       <input name="dni" value={form.dni} onChange={handleChange} placeholder="DNI" style={estiloInput} />
-      <input name="nacimiento" value={form.nacimiento} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()} placeholder="Fecha de nacimiento" style={estiloInput} />
+      <input name="nacimiento" value={form.nacimiento} onChange={handleChange} type="date" placeholder="Fecha de nacimiento" style={estiloInput} />
 
       <span>Información de contacto:</span>
       <input name="email" value={form.email} onChange={handleChange} type="email" placeholder="Email" style={estiloInput} />
       <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" style={estiloInput} />
 
       <span>Confirmación de reserva:</span>
+      <label style={{ marginTop: "1rem" }}>Elegí una fecha:</label>
+      <input
+        name="fecha"
+        value={form.fecha}
+        onChange={handleChange}
+        type="date"
+        placeholder="Fecha de reserva"
+        style={estiloInput}
+      />
 
-<div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-  <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
-  <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
-  <button onClick={() => setFechaRapida("semana")} style={estiloBotonSecundario}>Esta semana</button>
-</div>
+      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+        <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
+        <button onClick={() => setFechaRapida("manana")} style={estiloBotonSecundario}>Mañana</button>
+        <button onClick={() => setFechaRapida("semana")} style={estiloBotonSecundario}>Esta semana</button>
+      </div>
 
-<input name="fecha" value={form.fecha} onChange={handleChange} type="date" onFocus={(e) => e.target.showPicker && e.target.showPicker()} placeholder="Fecha de reserva" style={estiloInput} />
+      <select name="horario" value={form.horario} onChange={handleChange} style={estiloInput}>
+        <option value="" disabled hidden>Seleccioná un horario</option>
+        {['19:00', '19:30', '20:00', '20:30', '21:00'].map((hora) => (
+          <option key={hora} value={hora}>{hora}</option>
+        ))}
+      </select>
 
-<select name="horario" value={form.horario} onChange={handleChange} style={estiloInput}>
-  <option value="" disabled hidden>Seleccioná un horario</option>
-  {['19:00', '19:30', '20:00', '20:30', '21:00'].map((hora) => (
-    <option key={hora} value={hora}>{hora}</option>
-  ))}
-</select>
+      <select name="personas" value={form.personas} onChange={handleChange} style={estiloInput}>
+        <option value="" disabled hidden>Seleccioná cantidad</option>
+        {[...Array(10)].map((_, i) => (
+          <option key={i + 1} value={i + 1}>{i + 1}</option>
+        ))}
+        <option value="evento_privado">Evento privado</option>
+      </select>
 
-<select name="personas" value={form.personas} onChange={handleChange} style={estiloInput}>
-  <option value="" disabled hidden>Seleccioná cantidad</option>
-  {[...Array(10)].map((_, i) => (
-    <option key={i + 1} value={i + 1}>{i + 1}</option>
-  ))}
-  <option value="evento_privado">Evento privado</option>
-</select>
-
-{form.personas && form.personas !== "evento_privado" && (
-  <select name="sector" value={form.sector} onChange={handleChange} style={estiloInput}>
-    <option value="" disabled hidden>Seleccioná un sector</option>
-    {sectoresDisponibles().map((s) => (
-      <option key={s} value={s}>{s}</option>
-    ))}
-  </select>
-)}{form.personas === "evento_privado" && (
+      {form.personas && form.personas !== "evento_privado" && (
+        <select name="sector" value={form.sector} onChange={handleChange} style={estiloInput}>
+          <option value="" disabled hidden>Seleccioná un sector</option>
+          {sectoresDisponibles().map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      )}
+      {form.personas === "evento_privado" && (
         <div style={{ color: "#EFE4CF", fontSize: "0.9rem" }}>
           Contactarse por <a href="https://wa.me/549XXXXXXXXXX" target="_blank" rel="noopener noreferrer" style={{ color: "#D3C6A3", textDecoration: "underline" }}>WhatsApp</a> para más detalles.
         </div>
