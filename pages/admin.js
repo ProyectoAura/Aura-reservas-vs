@@ -4,12 +4,16 @@ import { useRouter } from "next/router";
 
 export default function Admin() {
   const router = useRouter();
+  const [autorizado, setAutorizado] = React.useState(null);
 
   // Protección: redirige al inicio si no está autorizado
   useEffect(() => {
-    const autorizado = localStorage.getItem("adminAutorizado");
-    if (autorizado !== "true") {
-      router.push("/");
+    const acceso = localStorage.getItem("adminAutorizado");
+    if (acceso === "true") {
+      setAutorizado(true);
+    } else {
+      setAutorizado(false);
+      router.replace("/");
     }
   }, []);
 
@@ -21,6 +25,9 @@ export default function Admin() {
     { nombre: "Exportación de datos", ruta: "/admin/seccion5", emoji: "📤" },
     { nombre: "Seguridad y usuarios", ruta: "/admin/seccion6", emoji: "🔐" },
   ];
+
+  if (autorizado === null) return null;
+  if (autorizado === false) return null;
 
   return (
     <div style={estilos.contenedor}>
