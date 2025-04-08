@@ -129,22 +129,34 @@ export default function Reservas() {
       <span>Información personal:</span>
       <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre y Apellido" style={estiloInput} />
       <input name="dni" value={form.dni} onChange={handleChange} placeholder="DNI" style={estiloInput} />
-      <input name="nacimiento" value={form.nacimiento} onChange={handleChange} type="date" placeholder="Fecha de nacimiento" style={estiloInput} />
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+  <span style={{ minWidth: "70px", fontSize: "0.9rem" }}>+18 años</span>
+  <input
+    name="nacimiento"
+    value={form.nacimiento}
+    onChange={handleChange}
+    type="date"
+    placeholder="Fecha de nacimiento"
+    style={{ ...estiloInput, flex: 1 }}
+  />
+</div>
 
       <span>Información de contacto:</span>
       <input name="email" value={form.email} onChange={handleChange} type="email" placeholder="Email" style={estiloInput} />
       <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono" style={estiloInput} />
 
       <span>Confirmación de reserva:</span>
-      <label style={{ marginTop: "1rem" }}>Elegí una fecha:</label>
-      <input
-        name="fecha"
-        value={form.fecha}
-        onChange={handleChange}
-        type="date"
-        placeholder="Fecha de reserva"
-        style={estiloInput}
-      />
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+  <label style={{ minWidth: "100px", fontSize: "0.9rem" }}>Elegí una fecha:</label>
+  <input
+    name="fecha"
+    value={form.fecha}
+    onChange={handleChange}
+    type="date"
+    placeholder="Fecha de reserva"
+    style={{ ...estiloInput, flex: 1 }}
+  />
+</div>
 
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         <button onClick={() => setFechaRapida("hoy")} style={estiloBotonSecundario}>Hoy</button>
