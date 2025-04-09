@@ -124,7 +124,7 @@ export default function Seccion1() {
 
   return (
     <div style={estilos.contenedor}>
-      <h1 style={estilos.titulo}>📊 Panel de Administrador</h1>
+      <h1 style={estilos.titulo}>📊 Reservas y Estadísticas diarias</h1>
 
       <div style={estilos.statsBox}>
         <p>🔢 <strong>Total de reservas:</strong> {reservasFiltradas.length} 👬 <strong>Total de personas:</strong> {totalReservas}</p>
