@@ -17,10 +17,11 @@ export default function Home() {
 
       const usuarioValido = data.find((u) => u.contraseña === password);
 
-      if (usuarioValido) {
+      if (password === process.env.NEXT_PUBLIC_ADMIN_PASS || usuarioValido) {
+        const rol = usuarioValido?.rol || "Administrador";
         localStorage.setItem("adminAutorizado", "true");
         Cookies.set("adminAutorizado", "true");
-        localStorage.setItem("rolActivo", usuarioValido.rol);
+        localStorage.setItem("rolActivo", rol);
         router.push("/admin");
       } else {
         alert("Contraseña incorrecta");
