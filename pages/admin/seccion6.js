@@ -100,7 +100,7 @@ export default function Seccion6() {
       console.error(error);
     }
   };
-    setMostrarClave(true);
+    // se quitó el return incorrecto
 
   return (
     <div style={estilos.contenedor}>
