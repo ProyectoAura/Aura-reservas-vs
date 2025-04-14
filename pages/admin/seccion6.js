@@ -42,20 +42,50 @@ export default function Seccion6() {
     }
   };
 
-  const eliminarUsuario = (id) => {
+  const eliminarUsuario = async (id) => {
     if (rolActivo !== "Administrador") return;
-    if (window.confirm("¿Estás seguro que deseas eliminar este usuario?")) {
-      setUsuarios(usuarios.filter((u) => u.id !== id));
+    if (!window.confirm("¿Estás seguro que deseas eliminar este usuario?")) return;
+
+    const nuevos = usuarios.filter((u) => u.id !== id);
+    setUsuarios(nuevos);
+
+    try {
+      const response = await fetch('/api/guardar-usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevos)
+      });
+      if (!response.ok) throw new Error('Error al eliminar en la base de datos');
+    } catch (error) {
+      alert('No se pudo eliminar el usuario de la base de datos.');
+      console.error(error);
+    }
+  };
     }
   };
 
-  const crearUsuario = () => {
+  const crearUsuario = async () => {
     if (rolActivo !== "Administrador") return;
     const nuevoId = usuarios.length ? usuarios[usuarios.length - 1].id + 1 : 1;
     const nuevo = { id: nuevoId, nombre: "nuevo", contraseña: "", rol: "" };
-    setUsuarios([...usuarios, nuevo]);
+    const nuevos = [...usuarios, nuevo];
+    setUsuarios(nuevos);
     setEditandoId(nuevoId);
     setValoresEditados({ nombre: "nuevo", contraseña: "", rol: "" });
+    setMostrarClave(true);
+
+    try {
+      const response = await fetch('/api/guardar-usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevos)
+      });
+      if (!response.ok) throw new Error('Error al guardar nuevo usuario en la base de datos');
+    } catch (error) {
+      alert('No se pudo guardar el nuevo usuario.');
+      console.error(error);
+    }
+  };
     setMostrarClave(true);
   };
 
