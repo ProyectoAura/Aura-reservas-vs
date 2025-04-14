@@ -1,67 +1,132 @@
-// Sección 2 - Gestión de Reservas
+// Sección 2 - Gestión de Reservas (con Firebase) - Versión con columnas ocultables
 import { useState, useEffect } from "react";
+import { db } from "../../lib/firebase";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
 export default function Seccion2() {
+  // Estados principales
   const [fechaSeleccionada, setFechaSeleccionada] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [mostrarRestricciones, setMostrarRestricciones] = useState(true);
+  const [nuevaReserva, setNuevaReserva] = useState({ 
+    nombre: "", 
+    fecha: "", 
+    turno: "19:00", 
+    personas: 1, 
+    alergia: "" 
+  });
+  const [reservas, setReservas] = useState([]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mostrarRestricciones");
-      if (stored !== null) {
-        setMostrarRestricciones(JSON.parse(stored));
-      }
-    }
-  }, []);
+  // Control de visibilidad de columnas
+  const [columnasVisibles, setColumnasVisibles] = useState({
+    fecha: true,
+    nombre: true,
+    turno: true,
+    personas: true,
+    restricciones: true,
+    acciones: true
+  });
 
-  const [nuevaReserva, setNuevaReserva] = useState({ nombre: "", fecha: "", turno: "19:00", personas: 1, alergia: "" });
-  const [reservas, setReservas] = useState([
-    { id: 1, nombre: "Martín Pérez", turno: "19:00", personas: 2, fecha: "2025-04-06", alergia: "" },
-    { id: 2, nombre: "Lucía Gómez", turno: "20:00", personas: 4, fecha: "2025-04-06", alergia: "Frutos secos" },
-    { id: 3, nombre: "Nico Sosa", turno: "21:00", personas: 2, fecha: "2025-04-07", alergia: "" }
-  ]);
+  // Filtros
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroNombre, setFiltroNombre] = useState("");
+  const [filtroTurno, setFiltroTurno] = useState("");
+  const [filtroPersonas, setFiltroPersonas] = useState("");
 
+  // Turnos disponibles
   const turnos = [
     "19:00", "19:30", "20:00", "20:30", "21:00",
     "21:30", "22:00", "22:30", "23:00", "23:30",
     "00:00", "00:30", "01:00"
   ];
 
-  const reservasFiltradas = fechaSeleccionada
-    ? reservas.filter((res) => res.fecha === fechaSeleccionada)
-    : reservas;
+  // Obtener reservas al cargar
+  useEffect(() => {
+    const cargarConfiguracion = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("columnasVisibles");
+        if (stored !== null) {
+          setColumnasVisibles(JSON.parse(stored));
+        }
+      }
+    };
 
-  const handleAgregarReserva = () => {
-    if (nuevaReserva.id) {
-      setReservas(reservas.map((r) => (r.id === nuevaReserva.id ? nuevaReserva : r)));
-    } else {
-      const nueva = {
-        ...nuevaReserva,
-        id: Date.now()
-      };
-      setReservas([...reservas, nueva]);
+    const obtenerReservas = async () => {
+      const querySnapshot = await getDocs(collection(db, "reservas"));
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setReservas(data);
+    };
+
+    cargarConfiguracion();
+    obtenerReservas();
+  }, []);
+
+  // Filtrar reservas
+  const reservasFiltradas = reservas.filter((res) => {
+    const coincideFecha = filtroFecha === "" || res.fecha.includes(filtroFecha);
+    const coincideNombre = filtroNombre === "" || res.nombre.toLowerCase().includes(filtroNombre.toLowerCase());
+    const coincideTurno = filtroTurno === "" || res.turno.includes(filtroTurno);
+    const coincidePersonas = filtroPersonas === "" || res.personas.toString() === filtroPersonas;
+
+    return coincideFecha && coincideNombre && coincideTurno && coincidePersonas;
+  });
+
+  // Alternar visibilidad de columnas
+  const toggleColumna = (columna) => {
+    const nuevasColumnas = {
+      ...columnasVisibles,
+      [columna]: !columnasVisibles[columna]
+    };
+    setColumnasVisibles(nuevasColumnas);
+    localStorage.setItem("columnasVisibles", JSON.stringify(nuevasColumnas));
+  };
+
+  // Manejar agregar/editar reserva
+  const handleAgregarReserva = async () => {
+    try {
+      if (nuevaReserva.id) {
+        const ref = doc(db, "reservas", nuevaReserva.id);
+        await updateDoc(ref, nuevaReserva);
+        setReservas(reservas.map(r => (r.id === nuevaReserva.id ? nuevaReserva : r)));
+      } else {
+        const reservaConEstado = { ...nuevaReserva, estado: "confirmada" };
+        const docRef = await addDoc(collection(db, "reservas"), reservaConEstado);
+        setReservas([...reservas, { ...reservaConEstado, id: docRef.id }]);
+      }
+      setNuevaReserva({ nombre: "", fecha: "", turno: "19:00", personas: 1, alergia: "" });
+      setMostrarFormulario(false);
+    } catch (e) {
+      console.error("Error al guardar la reserva:", e);
     }
-    setNuevaReserva({ nombre: "", fecha: "", turno: "19:00", personas: 1 });
-    setMostrarFormulario(false);
   };
 
   return (
     <div style={estilos.contenedor}>
       <h1 style={estilos.titulo}>🗂️ Gestión de Reservas</h1>
-      <label style={{ display: 'block', marginBottom: '1rem' }}>
-        <input
-          type="checkbox"
-          checked={mostrarRestricciones}
-          onChange={(e) => {
-            setMostrarRestricciones(e.target.checked);
-            localStorage.setItem("mostrarRestricciones", JSON.stringify(e.target.checked));
-          }}
-        /> Mostrar restricciones alimenticias/alergias
-      </label>
+      
+      {/* Controles de columnas */}
+      <div style={{...estilos.filtroBox, flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem'}}>
+        <span style={{marginRight: '0.5rem', color: '#EFE4CF'}}>👁️ Mostrar columnas:</span>
+        {Object.entries(columnasVisibles).map(([columna, visible]) => (
+          <button
+            key={columna}
+            onClick={() => toggleColumna(columna)}
+            style={{
+              ...estilos.botonColumna,
+              backgroundColor: visible ? '#D3C6A3' : '#806C4F',
+              color: visible ? '#0A1034' : '#EFE4CF'
+            }}
+          >
+            {columna === 'restricciones' ? 'Restricciones' : 
+             columna === 'personas' ? 'Personas' :
+             columna.charAt(0).toUpperCase() + columna.slice(1)}
+            {visible ? ' ✅' : ' ❌'}
+          </button>
+        ))}
+      </div>
 
+      {/* Filtro por fecha */}
       <div style={estilos.filtroBox}>
-        <label htmlFor="fecha">📅 Filtrar por fecha: </label>
+        <label htmlFor="fecha" style={{color: '#EFE4CF'}}>📅 Filtrar por fecha:</label>
         <input
           type="date"
           id="fecha"
@@ -71,10 +136,15 @@ export default function Seccion2() {
         />
       </div>
 
-      <button onClick={() => setMostrarFormulario(!mostrarFormulario)} style={estilos.botonAgregar}>
+      {/* Botón agregar reserva */}
+      <button 
+        onClick={() => setMostrarFormulario(!mostrarFormulario)} 
+        style={estilos.botonAgregar}
+      >
         {mostrarFormulario ? "✖️ Cancelar" : "➕ Agregar nueva reserva"}
       </button>
 
+      {/* Formulario de reserva */}
       {mostrarFormulario && (
         <div style={estilos.formularioBox}>
           <input
@@ -113,62 +183,134 @@ export default function Seccion2() {
             onChange={(e) => setNuevaReserva({ ...nuevaReserva, alergia: e.target.value })}
             style={estilos.input}
           />
-          <button onClick={handleAgregarReserva} style={estilos.botonConfirmar}>💾 Guardar</button>
+          <button onClick={handleAgregarReserva} style={estilos.botonConfirmar}>
+            💾 Guardar
+          </button>
         </div>
       )}
 
-      <table style={estilos.tabla}>
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Nombre</th>
-            <th>Turno</th>
-            <th>Personas</th>
-            {mostrarRestricciones && <th>Restricciones</th>}
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reservasFiltradas.map((reserva) => (
-            <tr key={reserva.id}>
-              <td>{reserva.fecha}</td>
-              <td>{reserva.nombre}</td>
-              <td>{reserva.turno}</td>
-              <td>{reserva.personas}</td>
-              {mostrarRestricciones && <td>{reserva.alergia ? `⚠️ ${reserva.alergia}` : '-'}</td>}
-              <td>
-                <button
-                  style={estilos.btnEditar}
-                  onClick={() => {
-                    setNuevaReserva(reserva);
-                    setMostrarFormulario(true);
-                  }}
-                >✏️</button>
-                <button
-                  style={estilos.btnEliminar}
-                  onClick={() => {
-                    const confirmacion = window.confirm("¿Estás seguro que deseas eliminar esta reserva?");
-                    if (confirmacion) {
-                      setReservas(reservas.filter((r) => r.id !== reserva.id));
-                    }
-                  }}
-                >🗑️</button>
-              </td>
+      {/* Tabla de reservas */}
+      <div style={{ overflowX: 'auto', marginTop: '2rem' }}>
+        <table style={estilos.tabla}>
+          <thead>
+            <tr>
+              {columnasVisibles.fecha && (
+                <th>
+                  <select onChange={e => setFiltroFecha(e.target.value)} style={estilos.input}>
+                    <option value="">📅 Todas las fechas</option>
+                    {[...new Set(reservas.map(r => r.fecha))].sort().map((fecha, i) => (
+                      <option key={i} value={fecha}>{fecha}</option>
+                    ))}
+                  </select>
+                </th>
+              )}
+              {columnasVisibles.nombre && (
+                <th>
+                  <select onChange={e => setFiltroNombre(e.target.value)} style={estilos.input}>
+                    <option value="">👤 Todos</option>
+                    {[...new Set(reservas.map(r => r.nombre))].sort().map((nombre, i) => (
+                      <option key={i} value={nombre}>{nombre}</option>
+                    ))}
+                  </select>
+                </th>
+              )}
+              {columnasVisibles.turno && (
+                <th>
+                  <select onChange={e => setFiltroTurno(e.target.value)} style={estilos.input}>
+                    <option value="">⏰ Todos</option>
+                    {[...new Set(reservas.map(r => r.turno))].sort().map((turno, i) => (
+                      <option key={i} value={turno}>{turno}</option>
+                    ))}
+                  </select>
+                </th>
+              )}
+              {columnasVisibles.personas && (
+                <th>
+                  <select onChange={e => setFiltroPersonas(e.target.value)} style={estilos.input}>
+                    <option value="">👥 Todas</option>
+                    {[...new Set(reservas.map(r => r.personas))].sort((a, b) => a - b).map((cant, i) => (
+                      <option key={i} value={cant}>{cant}</option>
+                    ))}
+                  </select>
+                </th>
+              )}
+              {columnasVisibles.restricciones && <th>Restricciones</th>}
+              {columnasVisibles.acciones && <th>Acciones</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {reservasFiltradas.map((reserva) => (
+              <tr key={reserva.id}>
+                {columnasVisibles.fecha && (
+                  <td style={estilos.celda}>{reserva.fecha}</td>
+                )}
+                {columnasVisibles.nombre && (
+                  <td style={estilos.celda}>{reserva.nombre}</td>
+                )}
+                {columnasVisibles.turno && (
+                  <td style={estilos.celda}>{reserva.turno || reserva.horario}</td>
+                )}
+                {columnasVisibles.personas && (
+                  <td style={estilos.celda}>{reserva.personas}</td>
+                )}
+                {columnasVisibles.restricciones && (
+                  <td style={estilos.celda}>
+                    {reserva.alergia ? `⚠️ ${reserva.alergia}` : '-'}
+                  </td>
+                )}
+                {columnasVisibles.acciones && (
+                  <td style={estilos.celda}>
+                    <button
+                      style={estilos.btnEditar}
+                      onClick={() => {
+                        setNuevaReserva(reserva);
+                        setMostrarFormulario(true);
+                      }}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      style={estilos.btnEliminar}
+                      onClick={async () => {
+                        const confirmacion = window.confirm("¿Estás seguro que deseas eliminar esta reserva?");
+                        if (confirmacion) {
+                          try {
+                            await deleteDoc(doc(db, "reservas", reserva.id));
+                            setReservas(reservas.filter((r) => r.id !== reserva.id));
+                          } catch (e) {
+                            console.error("Error al eliminar reserva:", e);
+                          }
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <button style={estilos.botonAlergias} onClick={() => window.location.href = '/admin/alergias'}>
+      {/* Botones adicionales */}
+      <button 
+        style={estilos.botonAlergias} 
+        onClick={() => window.location.href = '/admin/alergias'}
+      >
         🥗 Alergias y Restricciones
       </button>
-      <button style={estilos.botonVolver} onClick={() => window.location.href = '/admin'}>
+      <button 
+        style={estilos.botonVolver} 
+        onClick={() => window.location.href = '/admin'}
+      >
         🔙 Volver al Panel Principal
       </button>
     </div>
   );
 }
 
+// Estilos
 const estilos = {
   contenedor: {
     backgroundColor: "#0A1034",
@@ -209,13 +351,19 @@ const estilos = {
     width: "100%",
     borderCollapse: "collapse",
     backgroundColor: "#1C2340",
+    border: "1px solid #D3C6A3",
+  },
+  celda: {
+    border: '1px solid #D3C6A3', 
+    padding: '6px',
+    textAlign: 'center'
   },
   btnEditar: {
     marginRight: "0.5rem",
     cursor: "pointer",
     backgroundColor: "#D3C6A3",
     border: "none",
-    padding: "4px",
+    padding: "4px 8px",
     borderRadius: "4px",
   },
   btnEliminar: {
@@ -223,7 +371,7 @@ const estilos = {
     backgroundColor: "#806C4F",
     color: "white",
     border: "none",
-    padding: "4px",
+    padding: "4px 8px",
     borderRadius: "4px",
   },
   botonAgregar: {
@@ -265,4 +413,15 @@ const estilos = {
     margin: "1rem auto 0",
     fontSize: "1rem",
   },
+  botonColumna: {
+    padding: '0.3rem 0.6rem',
+    borderRadius: '12px',
+    border: 'none',
+    cursor: 'pointer',
+    marginRight: '0.3rem',
+    marginBottom: '0.3rem',
+    fontSize: '0.85rem',
+    transition: 'all 0.3s ease',
+    fontWeight: 'bold'
+  }
 };
