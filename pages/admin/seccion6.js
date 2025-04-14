@@ -1,7 +1,10 @@
 // Sección 6 – Seguridad y Usuarios
 // ACTUALIZACIÓN: Se permite crear roles, asignar permisos dinámicamente, y se restauró la descripción de roles.
 // Cada celda de la tabla de permisos ahora es editable (select por rol y sección).
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function Seccion6() {
   const [usuarios, setUsuarios] = useState([
@@ -14,6 +17,19 @@ export default function Seccion6() {
   const [editandoId, setEditandoId] = useState(null);
   const [valoresEditados, setValoresEditados] = useState({ nombre: "", contraseña: "", rol: "" });
   const [mostrarClave, setMostrarClave] = useState(false);
+
+  useEffect(() => {
+    const cargarUsuarios = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "usuarios"));
+        const lista = snapshot.docs.map(doc => doc.data());
+        setUsuarios(lista);
+      } catch (error) {
+        console.error("Error al cargar usuarios desde Firebase:", error);
+      }
+    };
+    cargarUsuarios();
+  }, []);
 
   const iniciarEdicion = (usuario) => {
     if (rolActivo !== "Administrador") return;
