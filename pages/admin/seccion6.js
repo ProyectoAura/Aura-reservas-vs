@@ -22,12 +22,24 @@ export default function Seccion6() {
     setMostrarClave(false);
   };
 
-  const guardarCambios = (id) => {
+  const guardarCambios = async (id) => {
     const nuevos = usuarios.map((u) =>
       u.id === id ? { ...u, nombre: valoresEditados.nombre, contraseña: valoresEditados.contraseña, rol: valoresEditados.rol } : u
     );
     setUsuarios(nuevos);
     setEditandoId(null);
+
+    try {
+      const response = await fetch('/api/guardar-usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevos)
+      });
+      if (!response.ok) throw new Error('Error al guardar en la base de datos');
+    } catch (error) {
+      alert('No se pudo guardar en la base de datos.');
+      console.error(error);
+    }
   };
 
   const eliminarUsuario = (id) => {
