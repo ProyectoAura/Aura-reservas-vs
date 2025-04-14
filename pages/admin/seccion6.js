@@ -77,8 +77,6 @@ export default function Seccion6() {
       console.error(error);
     }
   };
-    }
-  };
 
   const crearUsuario = async () => {
     if (rolActivo !== "Administrador") return;
