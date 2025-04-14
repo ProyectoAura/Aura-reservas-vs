@@ -10,27 +10,44 @@ export default function Seccion3() {
 
   const [configTurnos, setConfigTurnos] = useState(
     diasSemana.reduce((acc, dia) => {
-      acc[dia] = turnosBase.map((hora) => ({ hora, activo: true, capacidad: 15 }));
+      acc[dia] = {
+        visible: true,
+        turnos: turnosBase.map((hora) => ({ hora, activo: true, capacidad: 15 }))
+      };
       return acc;
     }, {})
   );
 
+  // Función para alternar visibilidad de un día completo
+  const toggleDiaVisible = (dia) => {
+    setConfigTurnos(prev => ({
+      ...prev,
+      [dia]: {
+        ...prev[dia],
+        visible: !prev[dia].visible
+      }
+    }));
+  };
+
   const toggleTurno = (dia, index) => {
     const nuevaConfig = { ...configTurnos };
-    nuevaConfig[dia][index].activo = !nuevaConfig[dia][index].activo;
+    nuevaConfig[dia].turnos[index].activo = !nuevaConfig[dia].turnos[index].activo;
     setConfigTurnos(nuevaConfig);
   };
 
   const cambiarCapacidad = (dia, index, valor) => {
     const nuevaConfig = { ...configTurnos };
-    nuevaConfig[dia][index].capacidad = parseInt(valor) || 0;
+    nuevaConfig[dia].turnos[index].capacidad = parseInt(valor) || 0;
     setConfigTurnos(nuevaConfig);
   };
 
   const toggleTodos = (dia) => {
-    const todosActivos = configTurnos[dia].every((t) => t.activo);
+    const todosActivos = configTurnos[dia].turnos.every((t) => t.activo);
     const nuevaConfig = { ...configTurnos };
-    nuevaConfig[dia] = nuevaConfig[dia].map((turno) => ({ ...turno, activo: !todosActivos }));
+    nuevaConfig[dia].turnos = nuevaConfig[dia].turnos.map((turno) => ({ 
+      ...turno, 
+      activo: !todosActivos 
+    }));
     setConfigTurnos(nuevaConfig);
   };
 
@@ -38,11 +55,37 @@ export default function Seccion3() {
     <div style={estilos.contenedor}>
       <h1 style={estilos.titulo}>⏰ Turnos y Horarios</h1>
 
+      <div style={estilos.controlesDias}>
+        {diasSemana.map(dia => (
+          <button
+            key={`toggle-${dia}`}
+            onClick={() => toggleDiaVisible(dia)}
+            style={{
+              ...estilos.botonDia,
+              backgroundColor: configTurnos[dia].visible ? '#5CB85C' : '#D9534F'
+            }}
+          >
+            {dia} {configTurnos[dia].visible ? '▲' : '▼'}
+          </button>
+        ))}
+      </div>
+
       {diasSemana.map((dia) => {
-        const todosDesactivados = configTurnos[dia].every(t => !t.activo);
+        if (!configTurnos[dia].visible) return null;
+        
+        const todosDesactivados = configTurnos[dia].turnos.every(t => !t.activo);
         return (
           <div key={dia} style={estilos.diaBox}>
-            <h3 style={estilos.diaTitulo}>{dia}</h3>
+            <div style={estilos.diaHeader}>
+              <h3 style={estilos.diaTitulo}>{dia}</h3>
+              <button
+                onClick={() => toggleDiaVisible(dia)}
+                style={estilos.botonOcultar}
+              >
+                Ocultar
+              </button>
+            </div>
+            
             {todosDesactivados ? (
               <button
                 style={estilos.botonActivar}
@@ -52,7 +95,7 @@ export default function Seccion3() {
               </button>
             ) : (
               <>
-                {configTurnos[dia].map((turno, index) => (
+                {configTurnos[dia].turnos.map((turno, index) => (
                   <div key={index} style={estilos.turnoRow}>
                     <label>{turno.hora}</label>
                     <input
@@ -60,8 +103,9 @@ export default function Seccion3() {
                       value={turno.capacidad}
                       onChange={(e) => cambiarCapacidad(dia, index, e.target.value)}
                       style={estilos.input}
+                      min="0"
                     />
-                    <label>
+                    <label style={estilos.checkboxLabel}>
                       <input
                         type="checkbox"
                         checked={turno.activo}
@@ -71,10 +115,10 @@ export default function Seccion3() {
                   </div>
                 ))}
                 <button
-                  style={configTurnos[dia].every(t => t.activo) ? estilos.botonDesactivar : estilos.botonActivar}
+                  style={configTurnos[dia].turnos.every(t => t.activo) ? estilos.botonDesactivar : estilos.botonActivar}
                   onClick={() => toggleTodos(dia)}
                 >
-                  {configTurnos[dia].every(t => t.activo)
+                  {configTurnos[dia].turnos.every(t => t.activo)
                     ? "🚫 Desactivar todos los turnos"
                     : "✅ Reactivar todos los turnos"}
                 </button>
@@ -105,15 +149,45 @@ const estilos = {
     textAlign: "center",
     color: "#D3C6A3",
   },
+  controlesDias: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+    marginBottom: '1.5rem',
+    justifyContent: 'center'
+  },
+  botonDia: {
+    padding: '0.5rem 1rem',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    color: 'white',
+    transition: 'all 0.3s ease'
+  },
   diaBox: {
     backgroundColor: "#1C2340",
     padding: "1rem",
     borderRadius: "10px",
     marginBottom: "1.5rem",
   },
+  diaHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem'
+  },
   diaTitulo: {
-    marginBottom: "1rem",
     color: "#D3C6A3",
+    margin: 0
+  },
+  botonOcultar: {
+    backgroundColor: 'transparent',
+    color: '#EFE4CF',
+    border: '1px solid #EFE4CF',
+    borderRadius: '6px',
+    padding: '0.3rem 0.8rem',
+    cursor: 'pointer'
   },
   turnoRow: {
     display: "flex",
@@ -128,6 +202,11 @@ const estilos = {
     padding: "0.4rem",
     border: "none",
     width: "60px",
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem'
   },
   botonDesactivar: {
     backgroundColor: "#D9534F",
