@@ -10,13 +10,24 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false);
   const inputRef = useRef(null);
 
-  const accederAdmin = () => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASS) {
-      localStorage.setItem("adminAutorizado", "true");
-      Cookies.set("adminAutorizado", "true");
-      router.push("/admin");
-    } else {
-      alert("Contraseña incorrecta");
+  const accederAdmin = async () => {
+    try {
+      const res = await fetch("/api/usuariosFirebase");
+      const data = await res.json();
+
+      const usuarioValido = data.find((u) => u.contraseña === password);
+
+      if (usuarioValido) {
+        localStorage.setItem("adminAutorizado", "true");
+        Cookies.set("adminAutorizado", "true");
+        localStorage.setItem("rolActivo", usuarioValido.rol);
+        router.push("/admin");
+      } else {
+        alert("Contraseña incorrecta");
+      }
+    } catch (error) {
+      console.error("Error al validar usuario:", error);
+      alert("No se pudo verificar la contraseña");
     }
   };
 
