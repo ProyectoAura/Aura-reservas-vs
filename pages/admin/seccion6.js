@@ -101,7 +101,6 @@ export default function Seccion6() {
     }
   };
     setMostrarClave(true);
-  };
 
   return (
     <div style={estilos.contenedor}>
