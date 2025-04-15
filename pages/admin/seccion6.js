@@ -1,23 +1,27 @@
 // Sección 6 – Seguridad y Usuarios
-// ACTUALIZACIÓN: Se permite crear roles, asignar permisos dinámicamente, y se restauró la descripción de roles.
-// Cada celda de la tabla de permisos ahora es editable (select por rol y sección).
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Seccion6() {
-  const [usuarios, setUsuarios] = useState(() => {
-    const guardados = localStorage.getItem("usuariosAura");
-    if (guardados) return JSON.parse(guardados);
-    return [
-      { id: 1, nombre: "admin", contraseña: "admin123", rol: "Administrador" },
-      { id: 2, nombre: "gerencia", contraseña: "gerente2025", rol: "Gerencia" }
-    ];
-  });
-
+  const [usuarios, setUsuarios] = useState([]);
   const [rolActivo, setRolActivo] = useState("Administrador");
-  const [roles, setRoles] = useState(["Administrador", "Gerencia", "Mozo"]); // Simula el usuario actual
+  const [roles, setRoles] = useState(["Administrador", "Gerencia", "Mozo"]);
   const [editandoId, setEditandoId] = useState(null);
   const [valoresEditados, setValoresEditados] = useState({ nombre: "", contraseña: "", rol: "" });
   const [mostrarClave, setMostrarClave] = useState(false);
+
+  useEffect(() => {
+    const guardados = localStorage.getItem("usuariosAura");
+    if (guardados) {
+      setUsuarios(JSON.parse(guardados));
+    } else {
+      const iniciales = [
+        { id: 1, nombre: "admin", contraseña: "Aura2025", rol: "Administrador" },
+        { id: 2, nombre: "gerencia", contraseña: "gerente2025", rol: "Gerencia" }
+      ];
+      setUsuarios(iniciales);
+      localStorage.setItem("usuariosAura", JSON.stringify(iniciales));
+    }
+  }, []);
 
   const iniciarEdicion = (usuario) => {
     if (rolActivo !== "Administrador") return;
@@ -42,7 +46,6 @@ export default function Seccion6() {
       setUsuarios(actualizados);
       localStorage.setItem("usuariosAura", JSON.stringify(actualizados));
     }
-  };
   };
 
   const crearUsuario = () => {
