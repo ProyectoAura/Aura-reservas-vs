@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { collection, getDocs, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import { db } from "../../firebase/firebaseConfig";
 
 export default function Seccion1() {
   const [edadMinima, setEdadMinima] = useState(21);
