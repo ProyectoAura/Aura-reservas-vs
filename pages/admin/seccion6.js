@@ -34,7 +34,6 @@ export default function Seccion6() {
     localStorage.setItem("usuariosAura", JSON.stringify(nuevos));
     setEditandoId(null);
   };
-  };
 
   const eliminarUsuario = (id) => {
     if (rolActivo !== "Administrador") return;
