@@ -1,34 +1,23 @@
 // Sección 6 – Seguridad y Usuarios
 // ACTUALIZACIÓN: Se permite crear roles, asignar permisos dinámicamente, y se restauró la descripción de roles.
 // Cada celda de la tabla de permisos ahora es editable (select por rol y sección).
-import { useState, useEffect } from "react";
-import { db } from "../../firebase/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { useState } from "react";
 
 export default function Seccion6() {
-  const [usuarios, setUsuarios] = useState([
-    { id: 1, nombre: "admin", contraseña: "admin123", rol: "Administrador" },
-    { id: 2, nombre: "gerencia", contraseña: "gerente2025", rol: "Gerencia" }
-  ]);
+  const [usuarios, setUsuarios] = useState(() => {
+    const guardados = localStorage.getItem("usuariosAura");
+    if (guardados) return JSON.parse(guardados);
+    return [
+      { id: 1, nombre: "admin", contraseña: "admin123", rol: "Administrador" },
+      { id: 2, nombre: "gerencia", contraseña: "gerente2025", rol: "Gerencia" }
+    ];
+  });
 
   const [rolActivo, setRolActivo] = useState("Administrador");
   const [roles, setRoles] = useState(["Administrador", "Gerencia", "Mozo"]); // Simula el usuario actual
   const [editandoId, setEditandoId] = useState(null);
   const [valoresEditados, setValoresEditados] = useState({ nombre: "", contraseña: "", rol: "" });
   const [mostrarClave, setMostrarClave] = useState(false);
-
-  useEffect(() => {
-    const cargarUsuarios = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "usuarios"));
-        const lista = snapshot.docs.map(doc => doc.data());
-        setUsuarios(lista);
-      } catch (error) {
-        console.error("Error al cargar usuarios desde Firebase:", error);
-      }
-    };
-    cargarUsuarios();
-  }, []);
 
   const iniciarEdicion = (usuario) => {
     if (rolActivo !== "Administrador") return;
@@ -37,69 +26,37 @@ export default function Seccion6() {
     setMostrarClave(false);
   };
 
-  const guardarCambios = async (id) => {
+  const guardarCambios = (id) => {
     const nuevos = usuarios.map((u) =>
       u.id === id ? { ...u, nombre: valoresEditados.nombre, contraseña: valoresEditados.contraseña, rol: valoresEditados.rol } : u
     );
     setUsuarios(nuevos);
+    localStorage.setItem("usuariosAura", JSON.stringify(nuevos));
     setEditandoId(null);
-
-    try {
-      const response = await fetch('/api/guardar-usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevos)
-      });
-      if (!response.ok) throw new Error('Error al guardar en la base de datos');
-    } catch (error) {
-      alert('No se pudo guardar en la base de datos.');
-      console.error(error);
-    }
+  };
   };
 
-  const eliminarUsuario = async (id) => {
+  const eliminarUsuario = (id) => {
     if (rolActivo !== "Administrador") return;
-    if (!window.confirm("¿Estás seguro que deseas eliminar este usuario?")) return;
-
-    const nuevos = usuarios.filter((u) => u.id !== id);
-    setUsuarios(nuevos);
-
-    try {
-      const response = await fetch('/api/guardar-usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevos)
-      });
-      if (!response.ok) throw new Error('Error al eliminar en la base de datos');
-    } catch (error) {
-      alert('No se pudo eliminar el usuario de la base de datos.');
-      console.error(error);
+    if (window.confirm("¿Estás seguro que deseas eliminar este usuario?")) {
+      const actualizados = usuarios.filter((u) => u.id !== id);
+      setUsuarios(actualizados);
+      localStorage.setItem("usuariosAura", JSON.stringify(actualizados));
     }
   };
+  };
 
-  const crearUsuario = async () => {
+  const crearUsuario = () => {
     if (rolActivo !== "Administrador") return;
     const nuevoId = usuarios.length ? usuarios[usuarios.length - 1].id + 1 : 1;
     const nuevo = { id: nuevoId, nombre: "nuevo", contraseña: "", rol: "" };
-    const nuevos = [...usuarios, nuevo];
-    setUsuarios(nuevos);
+    const actualizados = [...usuarios, nuevo];
+    setUsuarios(actualizados);
+    localStorage.setItem("usuariosAura", JSON.stringify(actualizados));
     setEditandoId(nuevoId);
     setValoresEditados({ nombre: "nuevo", contraseña: "", rol: "" });
     setMostrarClave(true);
-
-    try {
-      const response = await fetch('/api/guardar-usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevos)
-      });
-      if (!response.ok) throw new Error('Error al guardar nuevo usuario en la base de datos');
-    } catch (error) {
-      alert('No se pudo guardar el nuevo usuario.');
-      console.error(error);
-    }
   };
-    // se quitó el return incorrecto
 
   return (
     <div style={estilos.contenedor}>
