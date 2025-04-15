@@ -11,22 +11,29 @@ export default function Home() {
   const inputRef = useRef(null);
 
   const accederAdmin = () => {
-  const usuariosGuardados = JSON.parse(localStorage.getItem("usuariosAura")) || [];
+    const guardados = localStorage.getItem("usuariosAura");
+    let usuariosGuardados = [];
 
-  const usuarioMadre = { contraseña: "Aura2025", rol: "Administrador" };
-  const todosLosUsuarios = [usuarioMadre, ...usuariosGuardados];
+    try {
+      usuariosGuardados = JSON.parse(guardados) || [];
+    } catch (e) {
+      console.error("Error al leer usuariosAura:", e);
+    }
 
-  const usuarioValido = todosLosUsuarios.find((u) => u.contraseña === password);
+    const usuarioMadre = { nombre: "admin", contraseña: "Aura2025", rol: "Administrador" };
+    const todosLosUsuarios = [usuarioMadre, ...usuariosGuardados];
 
-  if (usuarioValido) {
-    localStorage.setItem("adminAutorizado", "true");
-    Cookies.set("adminAutorizado", "true");
-    localStorage.setItem("rolActivo", usuarioValido.rol);
-    router.push("/admin");
-  } else {
-    alert("Contraseña incorrecta");
-  }
-};
+    const usuarioValido = todosLosUsuarios.find((u) => u.contraseña === password);
+
+    if (usuarioValido) {
+      localStorage.setItem("adminAutorizado", "true");
+      Cookies.set("adminAutorizado", "true");
+      localStorage.setItem("rolActivo", usuarioValido.rol);
+      router.push("/admin");
+    } else {
+      alert("Contraseña incorrecta");
+    }
+  };
 
   useEffect(() => {
     if (showAdmin && inputRef.current) {
@@ -56,12 +63,8 @@ export default function Home() {
         <img src="/logo-aura.png" alt="AURA" style={estilos.logoImg} />
 
         <div style={estilos.botones}>
-          <button style={estilos.boton} onClick={() => router.push("/reservas")}>
-            Reservas
-          </button>
-          <button style={estilos.boton} onClick={() => router.push("/menu")}>
-            Menú
-          </button>
+          <button style={estilos.boton} onClick={() => router.push("/reservas")}>Reservas</button>
+          <button style={estilos.boton} onClick={() => router.push("/menu")}>Menú</button>
 
           {showAdmin && (
             <div style={estilos.adminBox}>
