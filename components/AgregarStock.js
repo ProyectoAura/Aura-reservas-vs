@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, updateDoc, addDoc, getDoc } from "firebase/firestore";
@@ -14,7 +15,6 @@ const AgregarStock = () => {
     }
 
     try {
-      // Buscar el producto actual
       const prodRef = doc(db, "productos", productoId);
       const prodSnap = await getDoc(prodRef);
 
@@ -27,13 +27,11 @@ const AgregarStock = () => {
       const medidasPorBotella = producto.unidadTotalMl / producto.medidaVentaMl;
       const medidasTotales = medidasPorBotella * cantidadBotellas;
 
-      // Actualizar stock
       await updateDoc(prodRef, {
         stockDisponibleMedidas: producto.stockDisponibleMedidas + medidasTotales,
         stockRealMedidas: producto.stockRealMedidas + medidasTotales
       });
 
-      // Agregar movimiento
       await addDoc(collection(db, "stock_movimientos"), {
         productoId: productoId,
         tipo: "ingreso",
