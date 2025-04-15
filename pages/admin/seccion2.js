@@ -1,6 +1,5 @@
 // Sección 2 - Gestión de Reservas (con Firebase) - Versión con columnas ocultables
 import { useState, useEffect } from "react";
-import { db } from "../../lib/firebase";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
 export default function Seccion2() {
