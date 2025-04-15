@@ -1,19 +1,14 @@
-  // pages/index.js
+// pages/index.js
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Cookies from "js-cookie"; // Solo un import de js-cookie ✅
-import ReactDOM from "react-dom/client";
-import App from "./App";
 
 export default function Home() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
   const inputRef = useRef(null);
-
-  const root = ReactDOM.createRoot(document.getElementById("root"));
-  root.render(<App />);
 
   const accederAdmin = async () => {
     try {
