@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, updateDoc, addDoc, getDoc } from "firebase/firestore";
@@ -50,27 +49,33 @@ const AgregarStock = () => {
   };
 
   return (
-    <div className="bg-[#0A1034] p-4 rounded-xl shadow-md">
-      <h2 className="text-xl font-semibold mb-2">Agregar Stock</h2>
+    <div className="bg-[#0A1034] p-6 rounded-2xl shadow-lg border border-[#806C4F] max-w-xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4 text-[#EFE4CF] text-center">Ingreso de Stock</h2>
+
+      <label className="block mb-2 text-[#EFE4CF]">ID del producto</label>
       <input
         type="text"
-        placeholder="ID del producto"
+        placeholder="Ej: prod_whisky_01"
         value={productoId}
         onChange={(e) => setProductoId(e.target.value)}
-        className="w-full mb-2 p-2 rounded text-black"
+        className="w-full mb-4 p-2 rounded-lg text-black bg-[#EFE4CF] focus:outline-none"
       />
+
+      <label className="block mb-2 text-[#EFE4CF]">Cantidad de botellas</label>
       <input
         type="number"
-        placeholder="Cantidad de botellas"
+        min={1}
+        placeholder="Ej: 2"
         value={cantidadBotellas}
         onChange={(e) => setCantidadBotellas(Number(e.target.value))}
-        className="w-full mb-2 p-2 rounded text-black"
+        className="w-full mb-4 p-2 rounded-lg text-black bg-[#EFE4CF] focus:outline-none"
       />
+
       <button
         onClick={handleCargarStock}
-        className="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-2 rounded"
+        className="w-full bg-[#806C4F] hover:bg-[#a18765] text-white py-3 rounded-xl font-semibold text-lg transition-all"
       >
-        Cargar Stock
+        Confirmar ingreso
       </button>
     </div>
   );
