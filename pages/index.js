@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import Cookies from "js-cookie"; // Solo un import de js-cookie ✅
+import Cookies from "js-cookie";
 
 export default function Home() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function Home() {
       localStorage.setItem("adminAutorizado", "true");
       Cookies.set("adminAutorizado", "true");
       localStorage.setItem("rolActivo", usuarioValido.rol);
-      router.push("/admin");
+      router.push("/panel");
     } else {
       alert("Contraseña incorrecta");
     }
@@ -179,7 +179,6 @@ const estilos = {
   },
 };
 
-// Estilo global para efecto al presionar botones:
 if (typeof window !== 'undefined') {
   document.addEventListener('mousedown', (e) => {
     if (e.target.tagName === 'BUTTON') e.target.style.transform = 'scale(0.97)';
