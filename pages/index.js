@@ -1,14 +1,19 @@
-// pages/index.js
+  // pages/index.js
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Cookies from "js-cookie"; // Solo un import de js-cookie ✅
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
 export default function Home() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
   const inputRef = useRef(null);
+
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
 
   const accederAdmin = async () => {
     try {
@@ -17,11 +22,10 @@ export default function Home() {
 
       const usuarioValido = data.find((u) => u.contraseña === password);
 
-      if (password === process.env.NEXT_PUBLIC_ADMIN_PASS || usuarioValido) {
-        const rol = usuarioValido?.rol || "Administrador";
+      if (usuarioValido) {
         localStorage.setItem("adminAutorizado", "true");
         Cookies.set("adminAutorizado", "true");
-        localStorage.setItem("rolActivo", rol);
+        localStorage.setItem("rolActivo", usuarioValido.rol);
         router.push("/admin");
       } else {
         alert("Contraseña incorrecta");
