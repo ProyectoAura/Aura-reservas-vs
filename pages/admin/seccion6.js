@@ -2,7 +2,7 @@
 // ACTUALIZACIÓN: Se permite crear roles, asignar permisos dinámicamente, y se restauró la descripción de roles.
 // Cada celda de la tabla de permisos ahora es editable (select por rol y sección).
 import { useState, useEffect } from "react";
-
+import { db } from "../../firebase/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 
 export default function Seccion6() {
