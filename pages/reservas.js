@@ -1,7 +1,7 @@
 // pages/reservas.js
 
 import { collection, addDoc, Timestamp } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db } from "../firebase/firebaseConfig";
 import emailjs from '@emailjs/browser';
 import { useState } from "react";
 
