@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Cookies from "js-cookie";
 import { db } from "../../firebase/firebaseConfig";
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc} from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc
+} from "firebase/firestore";
 
 export default function Compras() {
   const router = useRouter();
