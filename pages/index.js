@@ -3,35 +3,42 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Cookies from "js-cookie";
+import { getDocs, collection } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export default function Home() {
   const router = useRouter();
+  const [dni, setDni] = useState("");
   const [password, setPassword] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
   const inputRef = useRef(null);
 
-  const accederAdmin = () => {
-    const guardados = localStorage.getItem("usuariosAura");
-    let usuariosGuardados = [];
-
+  const accederAdmin = async () => {
     try {
-      usuariosGuardados = JSON.parse(guardados) || [];
+      const querySnapshot = await getDocs(collection(db, "usuariosAura"));
+      const usuariosGuardados = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+      const usuarioMadre = { nombre: "admin", dni: "0000", contraseña: "Aura2025", rol: "Administrador" };
+      const todosLosUsuarios = [usuarioMadre, ...usuariosGuardados];
+
+      const usuarioValido = todosLosUsuarios.find((u) => {
+        // Permitir acceso al usuario madre si solo se ingresa la contraseña madre
+        if (!dni && u.contraseña === password && u.nombre === "admin") return true;
+        return u.dni === dni && u.contraseña === password;
+      });
+
+      if (usuarioValido) {
+        localStorage.setItem("adminAutorizado", "true");
+        Cookies.set("adminAutorizado", "true");
+        localStorage.setItem("rolActivo", usuarioValido.rol);
+        localStorage.setItem("usuarioAura", JSON.stringify(usuarioValido));
+        router.push("/panel");
+      } else {
+        alert("DNI o contraseña incorrectos");
+      }
     } catch (e) {
-      console.error("Error al leer usuariosAura:", e);
-    }
-
-    const usuarioMadre = { nombre: "admin", contraseña: "Aura2025", rol: "Administrador" };
-    const todosLosUsuarios = [usuarioMadre, ...usuariosGuardados];
-
-    const usuarioValido = todosLosUsuarios.find((u) => u.contraseña === password);
-
-    if (usuarioValido) {
-      localStorage.setItem("adminAutorizado", "true");
-      Cookies.set("adminAutorizado", "true");
-      localStorage.setItem("rolActivo", usuarioValido.rol);
-      router.push("/panel");
-    } else {
-      alert("Contraseña incorrecta");
+      console.error("Error al acceder:", e);
+      alert("Error al intentar ingresar. Intenta nuevamente.");
     }
   };
 
@@ -60,42 +67,53 @@ export default function Home() {
         />
       </Head>
       <div style={estilos.contenedor}>
-        <img src="/logo-aura.png" alt="AURA" style={estilos.logoImg} />
+        <div style={estilos.logoYBotones}>
+          <img src="/logo-aura.png" alt="AURA" style={estilos.logoImg} />
 
-        <div style={estilos.botones}>
-          <button style={estilos.boton} onClick={() => router.push("/reservas")}>Reservas</button>
-          <button style={estilos.boton} onClick={() => router.push("/menu")}>Menú</button>
+          <div style={estilos.botones}>
+            <button style={estilos.boton} onClick={() => router.push("/reservas")}>Reservas</button>
+            <button style={estilos.boton} onClick={() => router.push("/menu")}>Menú</button>
 
-          {showAdmin && (
-            <div style={estilos.adminBox}>
-              <input
-                type="password"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                style={estilos.input}
-                ref={inputRef}
-              />
-              <button
-                style={{ ...estilos.boton, ...estilos.botonAdmin }}
-                onClick={accederAdmin}
-              >
-                Ingresar
-              </button>
-            </div>
-          )}
+            {showAdmin && (
+              <div style={estilos.adminBox}>
+                <input
+                  type="text"
+                  placeholder="DNI"
+                  value={dni}
+                  onChange={(e) => setDni(e.target.value)}
+                  style={estilos.input}
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  style={estilos.input}
+                  ref={inputRef}
+                />
+                <button
+                  style={{ ...estilos.boton, ...estilos.botonAdmin }}
+                  onClick={accederAdmin}
+                >
+                  Ingresar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <img
-          src="/candado-admin.png"
-          alt="admin"
-          style={estilos.candado}
-          onClick={toggleAdminBox}
-          onKeyDown={(e) => e.key === "Enter" && toggleAdminBox()}
-          tabIndex={0}
-          title="Acceso administrador"
-        />
+        <div style={estilos.candadoContainer}>
+          <img
+            src="/candado-admin.png"
+            alt="admin"
+            style={estilos.candado}
+            onClick={toggleAdminBox}
+            onKeyDown={(e) => e.key === "Enter" && toggleAdminBox()}
+            tabIndex={0}
+            title="Acceso administrador"
+          />
+        </div>
       </div>
     </>
   );
@@ -104,6 +122,7 @@ export default function Home() {
 const estilos = {
   contenedor: {
     backgroundImage: "url('/fondo-cuero.jpg')",
+    backgroundAttachment: "fixed",
     backgroundSize: "cover",
     backgroundPosition: "center",
     minHeight: "100vh",
@@ -111,13 +130,22 @@ const estilos = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     fontFamily: "'Space Grotesk', sans-serif",
     position: "relative",
   },
+  logoYBotones: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: "100%",
+    maxWidth: "500px",
+    marginTop: "2rem",
+  },
   logoImg: {
     width: "240px",
-    margin: "2rem 0 3rem 0",
+    marginBottom: "2rem",
   },
   botones: {
     display: "flex",
@@ -162,6 +190,7 @@ const estilos = {
     textAlign: "center",
     fontFamily: "'Space Grotesk', sans-serif",
     textShadow: "1px 1px 0 #00000088, 2px 2px 1px #00000055",
+    marginBottom: "10px",
   },
   adminBox: {
     display: "flex",
@@ -169,13 +198,17 @@ const estilos = {
     alignItems: "center",
     width: "100%",
   },
+  candadoContainer: {
+    display: "flex",
+    justifyContent: "center",
+    width: "100%",
+    marginTop: "4rem",
+  },
   candado: {
-    position: "absolute",
-    bottom: "20px",
     width: "32px",
     height: "32px",
     cursor: "pointer",
-    opacity: 0.6,
+    opacity: 0.5,
   },
 };
 
