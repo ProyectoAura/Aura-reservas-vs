@@ -1,5 +1,7 @@
 // Sección 6 – Seguridad y Usuarios
 import { useState, useEffect } from "react";
+import { db } from "../../firebase/firebaseConfig";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 
 export default function Seccion6() {
   const [usuarios, setUsuarios] = useState([]);
@@ -10,17 +12,12 @@ export default function Seccion6() {
   const [mostrarClave, setMostrarClave] = useState(false);
 
   useEffect(() => {
-    const guardados = localStorage.getItem("usuariosAura");
-    if (guardados) {
-      setUsuarios(JSON.parse(guardados));
-    } else {
-      const iniciales = [
-        { id: 1, nombre: "admin", contraseña: "Aura2025", rol: "Administrador" },
-        { id: 2, nombre: "gerencia", contraseña: "gerente2025", rol: "Gerencia" }
-      ];
-      setUsuarios(iniciales);
-      localStorage.setItem("usuariosAura", JSON.stringify(iniciales));
-    }
+    const obtenerUsuarios = async () => {
+      const snapshot = await getDocs(collection(db, "usuariosAura"));
+      const datos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsuarios(datos);
+    };
+    obtenerUsuarios();
   }, []);
 
   const iniciarEdicion = (usuario) => {
@@ -30,33 +27,33 @@ export default function Seccion6() {
     setMostrarClave(false);
   };
 
-  const guardarCambios = (id) => {
+  const guardarCambios = async (id) => {
+    const usuarioRef = doc(db, "usuariosAura", id);
+    await updateDoc(usuarioRef, valoresEditados);
     const nuevos = usuarios.map((u) =>
-      u.id === id ? { ...u, nombre: valoresEditados.nombre, contraseña: valoresEditados.contraseña, rol: valoresEditados.rol } : u
+      u.id === id ? { ...u, ...valoresEditados } : u
     );
     setUsuarios(nuevos);
-    localStorage.setItem("usuariosAura", JSON.stringify(nuevos));
     setEditandoId(null);
   };
 
-  const eliminarUsuario = (id) => {
+  const eliminarUsuario = async (id) => {
     if (rolActivo !== "Administrador") return;
     if (window.confirm("¿Estás seguro que deseas eliminar este usuario?")) {
+      await deleteDoc(doc(db, "usuariosAura", id));
       const actualizados = usuarios.filter((u) => u.id !== id);
       setUsuarios(actualizados);
-      localStorage.setItem("usuariosAura", JSON.stringify(actualizados));
     }
   };
 
-  const crearUsuario = () => {
+  const crearUsuario = async () => {
     if (rolActivo !== "Administrador") return;
-    const nuevoId = usuarios.length ? usuarios[usuarios.length - 1].id + 1 : 1;
-    const nuevo = { id: nuevoId, nombre: "nuevo", contraseña: "", rol: "" };
-    const actualizados = [...usuarios, nuevo];
+    const nuevo = { nombre: "nuevo", contraseña: "", rol: "" };
+    const docRef = await addDoc(collection(db, "usuariosAura"), nuevo);
+    const actualizados = [...usuarios, { ...nuevo, id: docRef.id }];
     setUsuarios(actualizados);
-    localStorage.setItem("usuariosAura", JSON.stringify(actualizados));
-    setEditandoId(nuevoId);
-    setValoresEditados({ nombre: "nuevo", contraseña: "", rol: "" });
+    setEditandoId(docRef.id);
+    setValoresEditados(nuevo);
     setMostrarClave(true);
   };
 
@@ -208,6 +205,7 @@ export default function Seccion6() {
     </div>
   );
 }
+
 
 const estilos = {
   contenedor: {
