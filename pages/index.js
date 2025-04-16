@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Cookies from "js-cookie";
 import { getDocs, collection } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db } from "../firebase/firebaseConfig";
 
 export default function Home() {
   const router = useRouter();
