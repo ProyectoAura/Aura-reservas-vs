@@ -1,5 +1,5 @@
 // pages/control-stock.js
-import React, { useState, useEffect, useRef } from "react"; // Añadido useRef
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Cookies from "js-cookie";
 import { db } from "../firebase/firebaseConfig";
@@ -12,13 +12,14 @@ import {
   doc,
   query,
   orderBy,
-  writeBatch // <<< AÑADIDO para importación masiva
+  writeBatch,
+  increment // <<< AÑADIDO: Para ajuste manual
 } from "firebase/firestore";
-import Papa from 'papaparse'; // <<< AÑADIDO para CSV
+import Papa from 'papaparse';
 
-// --- Componente FormularioStockItem (Sin cambios respecto a tu versión anterior) ---
+// --- Componente FormularioStockItem (Sin cambios) ---
 const FormularioStockItem = ({ item, onSave, onCancel }) => {
-  // ... (código del formulario sin cambios) ...
+  // ... (código interno del formulario sin cambios) ...
   const [formData, setFormData] = useState({ producto: "", marca: "", descripcion: "", categoria: "", unidadBase: "ml", });
   const [presentaciones, setPresentaciones] = useState([]);
   const [presentacionEditando, setPresentacionEditando] = useState({ nombre: "", esCompra: true, esVenta: false, contenidoEnUnidadBase: "" });
@@ -34,6 +35,85 @@ const FormularioStockItem = ({ item, onSave, onCancel }) => {
   return ( <form onSubmit={handleSubmit} style={estilos.formulario}> <h3 style={estilos.subtituloForm}>{item ? "Editar" : "Agregar"} Producto Base</h3> {/* Campos Principales */} <div style={estilos.filaInput}><label style={estilos.label}>Producto:</label><input name="producto" placeholder="Nombre" value={formData.producto} onChange={handleChange} style={estilos.input} required /></div> <div style={estilos.filaInput}><label style={estilos.label}>Marca:</label><input name="marca" placeholder="Marca" value={formData.marca} onChange={handleChange} style={estilos.input} /></div> <div style={estilos.filaInput}><label style={estilos.label}>Descripción:</label><input name="descripcion" placeholder="Descripción" value={formData.descripcion} onChange={handleChange} style={estilos.input} /></div> <div style={estilos.filaInput}><label style={estilos.label}>Categoría:</label><input name="categoria" placeholder="Categoría" value={formData.categoria} onChange={handleChange} style={estilos.input} /></div> <div style={estilos.filaInput}><label style={estilos.label}>Unidad Base:</label><select name="unidadBase" value={formData.unidadBase} onChange={handleChange} style={estilos.input} required ><option value="ml">ml</option><option value="g">g</option><option value="unidad">Unidad</option></select></div> {/* Sección Presentaciones */} <div style={estilos.seccionPresentaciones}><h4 style={estilos.subtituloPresentaciones}>Presentaciones</h4><div style={estilos.formPresentacion}><input name="nombre" placeholder="Nombre (Ej: Botella 1L)" value={presentacionEditando.nombre} onChange={handlePresentacionChange} style={{...estilos.input, marginBottom:'0.5rem'}}/><div style={{display: 'flex', gap: '1rem', alignItems: 'center', marginBottom:'0.5rem'}}><input name="contenidoEnUnidadBase" type="number" step="any" min="0" placeholder={`Contenido en ${formData.unidadBase}`} value={presentacionEditando.contenidoEnUnidadBase} onChange={handlePresentacionChange} style={{...estilos.input, flex: 1}}/><label style={estilos.labelCheckbox}><input type="checkbox" name="esCompra" checked={presentacionEditando.esCompra} onChange={handlePresentacionChange} /> Compra</label><label style={estilos.labelCheckbox}><input type="checkbox" name="esVenta" checked={presentacionEditando.esVenta} onChange={handlePresentacionChange} /> Venta</label></div><div style={{display: 'flex', gap: '0.5rem'}}><button type="button" onClick={handleAddOrUpdatePresentacion} style={{...estilos.botonAgregar, fontSize: '0.9rem', padding: '0.5rem', width: 'auto', marginTop: 0}}>{editandoPresentacionIndex !== null ? '✓ Actualizar' : '➕ Agregar'}</button>{editandoPresentacionIndex !== null && (<button type="button" onClick={handleCancelEditPresentacion} style={{...estilos.botonCancelar, fontSize: '0.9rem', padding: '0.5rem', width: 'auto', marginTop: 0}}>✗ Cancelar</button>)}</div></div>{presentaciones.length > 0 && (<ul style={estilos.listaPresentaciones}>{presentaciones.map((p, index) => (<li key={index} style={editandoPresentacionIndex === index ? estilos.presentacionEditando : estilos.listaPresentaciones_li}><span><strong>{p.nombre}</strong> = {p.contenidoEnUnidadBase} {formData.unidadBase} ({p.esCompra ? 'C' : ''}{p.esVenta ? 'V' : ''})</span><div><button type="button" onClick={() => handleEditPresentacion(index)} style={estilos.botonAccionPresentacion}>✏️</button><button type="button" onClick={() => handleDeletePresentacion(index)} style={estilos.botonAccionPresentacionRojo}>🗑️</button></div></li>))}</ul>)}</div> {/* Botones Principales */} <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}><button type="submit" style={estilos.botonGuardar}>{item ? "✓ Guardar Cambios" : "➕ Agregar Producto"}</button><button type="button" onClick={onCancel} style={estilos.botonCancelar}>✗ Cancelar</button></div> </form> );
 };
 
+// --- <<< AÑADIDO: Componente Modal para Ajuste Manual >>> ---
+const ModalAjusteStock = ({ item, onClose, onAjustar }) => {
+  const [ajuste, setAjuste] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [rolUsuario, setRolUsuario] = useState(""); // Para verificar permiso
+
+  useEffect(() => {
+    // Leer rol del localStorage al montar el modal
+    const rol = localStorage.getItem("rolActivo");
+    setRolUsuario(rol || "");
+  }, []);
+
+  const handleAjustarClick = () => {
+    // <<< Verificación de Rol (Cliente - Mejorar con Reglas Firestore) >>>
+    if (rolUsuario !== "Administrador") {
+        alert("No tienes permiso para realizar ajustes manuales de stock.");
+        return;
+    }
+
+    const valorAjuste = parseFloat(ajuste);
+    if (isNaN(valorAjuste)) {
+      alert("Ingresa un número válido para el ajuste (puede ser negativo).");
+      return;
+    }
+    if (!motivo.trim()) {
+        alert("Debes ingresar un motivo para el ajuste.");
+        return;
+    }
+    onAjustar(item.id, valorAjuste, motivo.trim());
+    onClose();
+  };
+
+  return (
+    <div style={estilos.modalOverlay}>
+      <div style={estilos.modalContent}>
+        <h4 style={estilos.modalTitle}>Ajuste Manual: {item.producto} ({item.marca || '-'})</h4>
+        <p>Stock Actual: {item.cantidadActual !== undefined ? item.cantidadActual : 0} {item.unidadBase}</p>
+        <div style={estilos.filaInput}>
+          <label style={estilos.label}>Ajuste (+/-):</label>
+          <input
+            type="number"
+            step="any"
+            placeholder={`Ej: 100 o -50 (${item.unidadBase})`}
+            value={ajuste}
+            onChange={(e) => setAjuste(e.target.value)}
+            style={estilos.input}
+            autoFocus
+          />
+        </div>
+         <div style={estilos.filaInput}>
+          <label style={estilos.label}>Motivo:</label>
+          <input
+            type="text"
+            placeholder="Obligatorio (Ej: Merma, Inventario, Corrección)"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            style={estilos.input}
+            required // Añadir validación visual básica
+          />
+        </div>
+        {/* Mostrar advertencia si no es admin */}
+        {rolUsuario !== "Administrador" && (
+            <p style={{color: 'orange', fontSize: '0.8rem', textAlign: 'center'}}>Solo administradores pueden aplicar ajustes.</p>
+        )}
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={handleAjustarClick}
+            style={estilos.botonGuardar}
+            disabled={rolUsuario !== "Administrador"} // Deshabilitar si no es admin
+          >
+            ✓ Aplicar Ajuste
+          </button>
+          <button onClick={onClose} style={estilos.botonCancelar}>✗ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // --- Página Principal de Control de Stock ---
 export default function ControlStock() {
@@ -42,9 +122,10 @@ export default function ControlStock() {
   const [loading, setLoading] = useState(true);
   const [itemEditando, setItemEditando] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [importFile, setImportFile] = useState(null); // <<< AÑADIDO: Estado para archivo de importación
-  const [isImporting, setIsImporting] = useState(false); // <<< AÑADIDO: Estado de carga de importación
-  const fileInputRef = useRef(null); // <<< AÑADIDO: Ref para resetear input file
+  const [importFile, setImportFile] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
+  const [itemParaAjuste, setItemParaAjuste] = useState(null); // <<< AÑADIDO: Estado para modal de ajuste
 
   // --- Autorización y Carga de Datos ---
   useEffect(() => {
@@ -68,260 +149,126 @@ export default function ControlStock() {
     return () => unsubscribe();
   }, [router]);
 
-  // --- Funciones CRUD (Sin cambios en las existentes) ---
-  const handleGuardarItem = async (formDataConPresentaciones) => {
-    try {
-      if (itemEditando) {
-        const itemRef = doc(db, "articulosAura", itemEditando.id);
-        await updateDoc(itemRef, formDataConPresentaciones);
-        alert("Producto Base actualizado.");
-      } else {
-        await addDoc(collection(db, "articulosAura"), { ...formDataConPresentaciones, cantidadActual: 0 });
-        alert("Nuevo Producto Base agregado.");
-      }
-      setShowForm(false); setItemEditando(null);
-    } catch (error) { console.error("Error al guardar:", error); alert(`Error: ${error.message}`); }
+  // --- Funciones CRUD ---
+  const handleGuardarItem = async (formDataConPresentaciones) => { /* ... (sin cambios) ... */
+    try { if (itemEditando) { const itemRef = doc(db, "articulosAura", itemEditando.id); await updateDoc(itemRef, formDataConPresentaciones); alert("Producto Base actualizado."); } else { await addDoc(collection(db, "articulosAura"), { ...formDataConPresentaciones, cantidadActual: 0 }); alert("Nuevo Producto Base agregado."); } setShowForm(false); setItemEditando(null); } catch (error) { console.error("Error al guardar:", error); alert(`Error: ${error.message}`); }
   };
   const handleEditarItem = (item) => { setItemEditando(item); setShowForm(true); };
   const handleAgregarClick = () => { setItemEditando(null); setShowForm(true); };
   const handleCancelarForm = () => { setShowForm(false); setItemEditando(null); };
-  const handleEliminarItem = async (id, nombreProducto) => {
-    if (!window.confirm(`¿Eliminar "${nombreProducto}"?`)) return;
-    try { await deleteDoc(doc(db, "articulosAura", id)); alert(`"${nombreProducto}" eliminado.`); }
-    catch (error) { console.error("Error al eliminar:", error); alert(`Error: ${error.message}`); }
+  const handleEliminarItem = async (id, nombreProducto) => { /* ... (sin cambios) ... */
+    if (!window.confirm(`¿Eliminar "${nombreProducto}"?`)) return; try { await deleteDoc(doc(db, "articulosAura", id)); alert(`"${nombreProducto}" eliminado.`); } catch (error) { console.error("Error al eliminar:", error); alert(`Error: ${error.message}`); }
    };
 
-  // --- <<< AÑADIDO: Funciones de Exportación CSV >>> ---
-  const handleExportCSV = () => {
-    if (stockItems.length === 0) {
-      alert("No hay datos de stock para exportar.");
-      return;
-    }
-
-    // Preparar datos: Exportar solo campos principales del Producto Base
-    const dataToExport = stockItems.map(item => ({
-      Producto: item.producto || "",
-      Marca: item.marca || "",
-      Descripcion: item.descripcion || "",
-      Categoria: item.categoria || "",
-      UnidadBase: item.unidadBase || "",
-      StockActual: item.cantidadActual !== undefined ? item.cantidadActual : 0,
-      // Omitimos 'presentaciones' para simplicidad del CSV
-    }));
-
-    // Convertir a CSV usando PapaParse
-    const csv = Papa.unparse(dataToExport);
-
-    // Crear Blob y enlace de descarga
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    const fechaHoy = new Date().toISOString().split('T')[0];
-    link.setAttribute("download", `stock_aura_${fechaHoy}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Liberar memoria
+  // --- Funciones de Exportación CSV ---
+  const handleExportCSV = () => { /* ... (sin cambios) ... */
+    if (stockItems.length === 0) { alert("No hay datos para exportar."); return; } const dataToExport = stockItems.map(item => ({ Producto: item.producto || "", Marca: item.marca || "", Descripcion: item.descripcion || "", Categoria: item.categoria || "", UnidadBase: item.unidadBase || "", StockActual: item.cantidadActual !== undefined ? item.cantidadActual : 0, })); const csv = Papa.unparse(dataToExport); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); const fechaHoy = new Date().toISOString().split('T')[0]; link.setAttribute("download", `stock_aura_${fechaHoy}.csv`); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
   };
 
-  // --- <<< AÑADIDO: Funciones de Importación CSV >>> ---
-  const handleFileChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      setImportFile(event.target.files[0]);
-    } else {
-      setImportFile(null);
-    }
+  // --- Funciones de Importación CSV ---
+  const handleFileChange = (event) => { /* ... (sin cambios) ... */
+    if (event.target.files && event.target.files[0]) { setImportFile(event.target.files[0]); } else { setImportFile(null); }
+  };
+  const handleImportCSV = () => { /* ... (sin cambios) ... */
+    if (!importFile) { alert("Selecciona un archivo CSV."); return; } if (!window.confirm("Importar CREARÁ NUEVOS Productos Base desde el CSV (no actualiza existentes ni stock). ¿Continuar?")) { return; } setIsImporting(true); Papa.parse(importFile, { header: true, skipEmptyLines: true, complete: async (results) => { console.log("CSV Parseado:", results); const rows = results.data; const errors = []; const validProducts = []; rows.forEach((row, index) => { if (!row.Producto || !row.UnidadBase) { errors.push(`Fila ${index + 2}: Faltan Producto o UnidadBase.`); return; } if (!["ml", "g", "unidad"].includes(row.UnidadBase)) { errors.push(`Fila ${index + 2}: UnidadBase inválida ('${row.UnidadBase}').`); return; } validProducts.push({ producto: row.Producto.trim(), marca: (row.Marca || "").trim(), descripcion: (row.Descripcion || "").trim(), categoria: (row.Categoria || "").trim(), unidadBase: row.UnidadBase, cantidadActual: 0, presentaciones: [], }); }); if (errors.length > 0) { alert(`Errores en CSV:\n${errors.join("\n")}\nNo se importó.`); setIsImporting(false); setImportFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; return; } if (validProducts.length === 0) { alert("No se encontraron productos válidos."); setIsImporting(false); setImportFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; return; } try { const batch = writeBatch(db); let operationsCount = 0; validProducts.forEach(productData => { const newDocRef = doc(collection(db, "articulosAura")); batch.set(newDocRef, productData); operationsCount++; if (operationsCount >= 499) { console.warn("Límite de batch casi alcanzado."); } }); await batch.commit(); alert(`${validProducts.length} producto(s) importado(s). Añade presentaciones manualmente.`); } catch (error) { console.error("Error importando:", error); alert(`Error: ${error.message}`); } finally { setIsImporting(false); setImportFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; } }, error: (error) => { console.error("Error parseando CSV:", error); alert(`Error al leer CSV: ${error.message}`); setIsImporting(false); } });
   };
 
-  const handleImportCSV = () => {
-    if (!importFile) {
-      alert("Selecciona un archivo CSV para importar.");
-      return;
-    }
-    if (!window.confirm("Esto intentará CREAR NUEVOS Productos Base desde el CSV. No actualizará existentes ni modificará el stock actual. ¿Continuar?")) {
-        return;
-    }
+  // --- <<< AÑADIDO: Funciones para Ajuste Manual >>> ---
+  const handleAbrirModalAjuste = (item) => {
+      setItemParaAjuste(item);
+  };
 
-    setIsImporting(true);
-
-    Papa.parse(importFile, {
-      header: true, // Asume que la primera fila son los encabezados
-      skipEmptyLines: true,
-      complete: async (results) => {
-        console.log("CSV Parseado:", results);
-        const rows = results.data;
-        const errors = [];
-        const validProducts = [];
-
-        // 1. Validación
-        rows.forEach((row, index) => {
-          // Validar campos obligatorios (ajusta según tu CSV)
-          if (!row.Producto || !row.UnidadBase) {
-            errors.push(`Fila ${index + 2}: Faltan campos obligatorios (Producto, UnidadBase).`);
-            return; // Saltar esta fila
-          }
-          // Validar UnidadBase (opcional pero recomendado)
-          if (!["ml", "g", "unidad"].includes(row.UnidadBase)) {
-              errors.push(`Fila ${index + 2}: UnidadBase inválida ('${row.UnidadBase}'). Usar 'ml', 'g' o 'unidad'.`);
-              return;
-          }
-
-          // Preparar datos para Firestore (solo crear, stock 0, sin presentaciones por ahora)
-          validProducts.push({
-            producto: row.Producto.trim(),
-            marca: (row.Marca || "").trim(),
-            descripcion: (row.Descripcion || "").trim(),
-            categoria: (row.Categoria || "").trim(),
-            unidadBase: row.UnidadBase,
-            cantidadActual: 0, // Importación solo crea, stock inicial 0
-            presentaciones: [], // Importación simple no incluye presentaciones
-          });
-        });
-
-        if (errors.length > 0) {
-          alert(`Se encontraron errores en el CSV:\n${errors.join("\n")}\nNo se importó nada.`);
-          setIsImporting(false);
-          setImportFile(null);
-          if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
+  const handleAplicarAjusteStock = async (itemId, valorAjuste, motivo) => {
+      // Doble verificación de rol (ya hecha en modal, pero por seguridad)
+      const rol = localStorage.getItem("rolActivo");
+      if (rol !== "Administrador") {
+          alert("Acción no permitida.");
           return;
-        }
-
-        if (validProducts.length === 0) {
-            alert("No se encontraron productos válidos para importar en el archivo.");
-            setIsImporting(false);
-            setImportFile(null);
-            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
-            return;
-        }
-
-        // 2. Escritura en Lote (Batch Write)
-        try {
-          const batch = writeBatch(db);
-          let operationsCount = 0; // Firestore limita a 500 operaciones por batch
-
-          validProducts.forEach(productData => {
-            // Aquí podríamos añadir una verificación para no duplicar (buscar si ya existe P+M+D),
-            // pero para la importación inicial simple, asumimos que son todos nuevos.
-            const newDocRef = doc(collection(db, "articulosAura"));
-            batch.set(newDocRef, productData);
-            operationsCount++;
-
-            // Si se alcanza el límite, se podría commitear y empezar un nuevo batch
-            // (No implementado aquí por simplicidad para importaciones moderadas)
-            if (operationsCount >= 499) {
-                console.warn("Límite de batch casi alcanzado, se necesitaría lógica de multi-batch para archivos muy grandes.");
-            }
-          });
-
-          await batch.commit();
-          alert(`${validProducts.length} producto(s) base importado(s) con éxito (Stock inicial 0). Añade las presentaciones manualmente.`);
-
-        } catch (error) {
-          console.error("Error al importar productos en lote:", error);
-          alert(`Error durante la importación: ${error.message}`);
-        } finally {
-          setIsImporting(false);
-          setImportFile(null);
-          if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
-        }
-      },
-      error: (error) => {
-        console.error("Error al parsear CSV:", error);
-        alert(`Error al leer el archivo CSV: ${error.message}`);
-        setIsImporting(false);
       }
-    });
-  };
+      if (isNaN(valorAjuste) || !motivo) return; // Ya validado en modal
 
+      const itemRef = doc(db, "articulosAura", itemId);
+      try {
+          await updateDoc(itemRef, {
+              cantidadActual: increment(valorAjuste)
+          });
+          console.log(`Ajuste manual aplicado a ${itemId}: ${valorAjuste}. Motivo: ${motivo}`);
+          alert("Ajuste de stock aplicado correctamente.");
+          // Opcional: Guardar un registro de auditoría en otra colección
+          // await addDoc(collection(db, "ajustesStockManual"), { itemId, valorAjuste, motivo, fecha: Timestamp.now(), usuario: localStorage.getItem("usuarioAura") ? JSON.parse(localStorage.getItem("usuarioAura")).nombre : "Desconocido" });
+
+      } catch (error) {
+          console.error("Error al aplicar ajuste manual:", error);
+          alert(`Error al aplicar ajuste: ${error.message}. Asegúrate que las reglas de Firestore lo permitan.`);
+      }
+  };
 
   // --- Renderizado ---
   return (
     <div style={estilos.contenedor}>
-      <button onClick={() => router.push('/panel')} style={estilos.botonVolver}>
-        ← Volver al Panel
-      </button>
+      <button onClick={() => router.push('/panel')} style={estilos.botonVolver}>← Volver</button>
       <h1 style={estilos.titulo}>📦 Control de Stock</h1>
 
       {/* Botón Agregar */}
-      {!showForm && (
-        <button onClick={handleAgregarClick} style={estilos.botonAgregarNuevo}>
-          ➕ Agregar Nuevo Producto Base
-        </button>
+      {/* <<< Ocultar si se muestra form O modal de ajuste >>> */}
+      {!showForm && !itemParaAjuste && (
+        <button onClick={handleAgregarClick} style={estilos.botonAgregarNuevo}>➕ Agregar Producto Base</button>
       )}
 
       {/* Formulario */}
-      {showForm && (
-        <FormularioStockItem
-          item={itemEditando}
-          onSave={handleGuardarItem}
-          onCancel={handleCancelarForm}
+      {showForm && (<FormularioStockItem item={itemEditando} onSave={handleGuardarItem} onCancel={handleCancelarForm} />)}
+
+      {/* <<< AÑADIDO: Renderizado condicional del Modal de Ajuste >>> */}
+      {itemParaAjuste && (
+        <ModalAjusteStock
+          item={itemParaAjuste}
+          onClose={() => setItemParaAjuste(null)}
+          onAjustar={handleAplicarAjusteStock}
         />
       )}
 
-      {/* <<< AÑADIDO: Sección de Importación/Exportación >>> */}
+      {/* Sección Import/Export */}
       <div style={estilos.seccionImportExport}>
         <h3 style={estilos.subtituloImportExport}>Importar / Exportar</h3>
-        {/* Exportación */}
-        <button onClick={handleExportCSV} style={estilos.botonExportar} disabled={stockItems.length === 0}>
-          📥 Descargar Stock Actual (CSV)
-        </button>
-
-        {/* Importación */}
+        <button onClick={handleExportCSV} style={estilos.botonExportar} disabled={stockItems.length === 0}>📥 Descargar Stock (CSV)</button>
         <div style={estilos.importContainer}>
-            <p style={estilos.importInstrucciones}>
-                Importar <strong>NUEVOS</strong> Productos Base desde CSV. <br/>
-                El archivo debe tener encabezados: <strong>Producto, Marca, Descripcion, Categoria, UnidadBase</strong> (ml, g, unidad).<br/>
-                (El stock iniciará en 0, las presentaciones se añaden manualmente después).
-            </p>
-            <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                ref={fileInputRef} // Para poder resetearlo
-                style={{ display: 'block', margin: '0.5rem 0' }}
-            />
-            <button onClick={handleImportCSV} style={estilos.botonImportar} disabled={!importFile || isImporting}>
-                {isImporting ? "Importando..." : "📤 Importar desde CSV"}
-            </button>
+            <p style={estilos.importInstrucciones}>Importar <strong>NUEVOS</strong> Productos Base desde CSV.<br/>Encabezados: <strong>Producto, Marca, Descripcion, Categoria, UnidadBase</strong> (ml, g, unidad).<br/>(Stock inicia en 0, presentaciones se añaden manualmente).</p>
+            <input type="file" accept=".csv" onChange={handleFileChange} ref={fileInputRef} style={{ display: 'block', margin: '0.5rem 0' }} />
+            <button onClick={handleImportCSV} style={estilos.botonImportar} disabled={!importFile || isImporting}>{isImporting ? "Importando..." : "📤 Importar CSV"}</button>
         </div>
       </div>
-      {/* <<< FIN Sección Importación/Exportación >>> */}
 
-
-      {/* Tabla de Stock */}
+      {/* Tabla de Stock (Columnas Reordenadas y Botón Ajuste) */}
       <div style={estilos.tablaContenedor}>
-        <h2 style={estilos.subtitulo}>Inventario Actual (Productos Base)</h2>
-        {loading ? (
-          <p>Cargando stock...</p>
-        ) : stockItems.length === 0 ? (
-          <p>No hay artículos base definidos. Agrega uno para empezar.</p>
-        ) : (
+        <h2 style={estilos.subtitulo}>Inventario Actual</h2>
+        {loading ? (<p>Cargando...</p>) : stockItems.length === 0 ? (<p>No hay artículos base.</p>) : (
           <table style={estilos.tabla}>
             <thead>
               <tr>
+                {/* <<< Columnas Reordenadas >>> */}
                 <th style={estilos.th}>Producto</th>
                 <th style={estilos.th}>Marca</th>
                 <th style={estilos.th}>Descripción</th>
-                <th style={estilos.th}>Categoría</th>
                 <th style={estilos.th}>Stock Actual</th>
                 <th style={estilos.th}>Unidad Base</th>
+                <th style={estilos.th}>Categoría</th> {/* <<< Movida aquí >>> */}
                 <th style={estilos.th}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {stockItems.map((item) => (
                 <tr key={item.id}>
+                  {/* <<< Celdas Reordenadas >>> */}
                   <td style={estilos.td}>{item.producto}</td>
                   <td style={estilos.td}>{item.marca || "-"}</td>
                   <td style={estilos.td}>{item.descripcion || "-"}</td>
-                  <td style={estilos.td}>{item.categoria || "-"}</td>
-                  <td style={estilos.td}>
-                    {item.cantidadActual !== undefined ? item.cantidadActual : 0}
-                  </td>
+                  <td style={estilos.td}>{item.cantidadActual !== undefined ? item.cantidadActual : 0}</td>
                   <td style={estilos.td}>{item.unidadBase}</td>
+                  <td style={estilos.td}>{item.categoria || "-"}</td> {/* <<< Movida aquí >>> */}
                   <td style={estilos.td}>
+                    {/* <<< AÑADIDO: Botón Ajuste Manual >>> */}
+                    <button onClick={() => handleAbrirModalAjuste(item)} style={estilos.botonAccionAjuste} title="Ajuste Manual Stock">📈</button>
+                    {/* Botones existentes */}
                     <button onClick={() => handleEditarItem(item)} style={estilos.botonAccion} title="Editar">✏️</button>
                     <button onClick={() => handleEliminarItem(item.id, item.producto)} style={estilos.botonAccionRojo} title="Eliminar">🗑️</button>
                   </td>
@@ -334,7 +281,6 @@ export default function ControlStock() {
     </div>
   );
 }
-
  
 // --- Estilos (Adaptados de compras/index.js) ---
 const estilos = {
@@ -607,5 +553,44 @@ botonAccionPresentacionRojo: {
     width: '100%',
     marginTop: '0.5rem',
     // Estilos :disabled se manejan en JSX
+  },
+  // <<< NUEVOS ESTILOS para Modal y Botón Ajuste >>>
+  botonAccionAjuste: { // Estilo para el nuevo botón de ajuste
+    background: "none",
+    border: "none",
+    color: "#81c784", // Verde claro
+    cursor: "pointer",
+    fontSize: "1.2rem", // Un poco más grande
+    margin: "0 0.4rem",
+    padding: 0,
+    lineHeight: 1,
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000, // Asegurar que esté por encima
+  },
+  modalContent: {
+    background: "#1C2340", // Mismo fondo que formularios
+    padding: "2rem",
+    borderRadius: "12px",
+    color: "#EFE4CF",
+    width: '90%',
+    maxWidth: '500px',
+    boxShadow: "0 5px 15px rgba(0,0,0,0.5)",
+  },
+  modalTitle: {
+    marginTop: 0,
+    marginBottom: "1.5rem",
+    color: "#D3C6A3",
+    fontSize: "1.4rem",
+    textAlign: 'center',
   },
 };
