@@ -548,228 +548,146 @@ export default function Compras() {
   );
 }
 
-// --- Estilos ---
+// --- Estilos (Con ajustes para posible mejora móvil) ---
 const estilos = {
-  // ... (Tus estilos existentes sin cambios) ...
   contenedor: {
     minHeight: "100vh",
-    background: "#0A1034", // Azul oscuro
-    color: "#EFE4CF", // Crema claro
-    padding: "2rem 1.5rem",
-    fontFamily: "'Space Grotesk', sans-serif", // Fuente consistente
+    background: "#0A1034",
+    color: "#EFE4CF",
+    padding: "2rem 1rem", // Un poco menos padding horizontal
+    fontFamily: "'Space Grotesk', sans-serif",
   },
   botonVolver: {
-    background: "#806C4F", // Marrón medio
-    color: "#EFE4CF",
-    padding: "0.5rem 1rem",
-    borderRadius: "10px",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    marginBottom: "1.5rem",
-    display: 'inline-block',
+    background: "#806C4F", color: "#EFE4CF", padding: "0.5rem 1rem", borderRadius: "10px",
+    border: "none", cursor: "pointer", fontWeight: "bold", marginBottom: "1.5rem", display: 'inline-block',
   },
   titulo: {
-    fontSize: "2rem", // Más grande
-    color: "#D3C6A3", // Dorado pálido
-    marginBottom: "2rem",
-    textAlign: "center",
-    borderBottom: "2px solid #806C4F",
-    paddingBottom: "0.5rem",
+    fontSize: "clamp(1.8rem, 5vw, 2rem)", // Tamaño de fuente adaptable
+    color: "#D3C6A3", marginBottom: "2rem", textAlign: "center",
+    borderBottom: "2px solid #806C4F", paddingBottom: "0.5rem",
   },
   subtitulo: {
-    marginTop: "2.5rem",
-    marginBottom: "1rem",
-    color: "#D3C6A3",
-    fontSize: "1.5rem",
-    borderBottom: "1px solid #4a5568", // Línea sutil
-    paddingBottom: "0.3rem",
+    marginTop: "2rem", marginBottom: "1rem", color: "#D3C6A3",
+    fontSize: "clamp(1.3rem, 4vw, 1.5rem)", // Tamaño adaptable
+    borderBottom: "1px solid #4a5568", paddingBottom: "0.3rem",
   },
   subtituloForm: {
-    color: "#EFE4CF",
-    fontSize: "1.3rem",
-    marginBottom: "1rem",
-    textAlign: 'center',
+    color: "#EFE4CF", fontSize: "1.3rem", marginBottom: "1rem", textAlign: 'center',
   },
   formulario: {
-    background: "#1C2340", // Azul más claro
-    padding: "1.5rem",
-    borderRadius: "12px",
-    marginBottom: "2rem",
-    maxWidth: "600px",
-    margin: "0 auto",
+    background: "#1C2340", padding: "1rem", // Menos padding en form
+    borderRadius: "12px", marginBottom: "2rem", maxWidth: "600px", margin: "0 auto",
     boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
   },
   filaInput: {
     display: 'flex',
-    alignItems: 'center',
+    // alignItems: 'center', // Quitar alineación vertical central por si envuelve
     marginBottom: '1rem',
-    gap: '1rem',
+    gap: '0.5rem', // Menos espacio
+    flexWrap: 'wrap', // <<< PERMITIR ENVOLTURA
   },
   label: {
-    minWidth: '100px', // Ancho fijo para alinear
-    textAlign: 'right',
+    // minWidth: '100px', // <<< QUITAR ancho mínimo
+    width: '100%', // Ocupar todo el ancho si se envuelve arriba
+    textAlign: 'left', // Alinear a la izquierda en móvil
     fontSize: '0.9rem',
     color: '#D3C6A3',
+    marginBottom: '0.25rem', // Pequeño espacio si se apila
+    paddingLeft: '0.2rem', // Pequeño indentado
   },
   input: {
-    padding: "0.7rem",
-    fontSize: "1rem",
-    borderRadius: "8px",
-    border: "1px solid #4a5568", // Borde más oscuro
-    backgroundColor: "#EFE4CF", // Fondo crema
-    color: "#2c1b0f", // Texto oscuro
-    flex: 1, // Ocupar espacio disponible
+    padding: "0.7rem", fontSize: "1rem", borderRadius: "8px", border: "1px solid #4a5568",
+    backgroundColor: "#EFE4CF", color: "#2c1b0f",
+    width: '100%', // Asegurar que ocupe todo el ancho disponible en su línea/columna
+    boxSizing: 'border-box', // Incluir padding/border en el ancho total
+  },
+  // Selects necesitan el mismo tratamiento que input
+  'input[type="date"]': { // Estilo específico si es necesario
+      minHeight: 'calc(0.7rem * 2 + 1rem + 2px)', // Ajustar altura mínima para consistencia
+  },
+  select: { // Aplicar a selects también si se usa etiqueta <select>
+      padding: "0.7rem", fontSize: "1rem", borderRadius: "8px", border: "1px solid #4a5568",
+      backgroundColor: "#EFE4CF", color: "#2c1b0f",
+      width: '100%', boxSizing: 'border-box', minHeight: 'calc(0.7rem * 2 + 1rem + 2px)',
   },
   botonAgregar: {
-    background: "#806C4F", // Marrón
-    color: "#EFE4CF",
-    padding: "0.8rem",
-    borderRadius: "10px",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "1rem",
-    marginTop: "1rem",
-    width: "100%",
-    transition: "background-color 0.2s",
-    '&:hover': {
-        backgroundColor: "#6b5b40", // Oscurecer al pasar el mouse
-    },
-    '&:disabled': {
-        backgroundColor: "#555",
-        cursor: 'not-allowed',
-    }
+    background: "#806C4F", color: "#EFE4CF", padding: "0.8rem", borderRadius: "10px",
+    border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "1rem",
+    marginTop: "1rem", width: "100%", transition: "background-color 0.2s",
+    // Estilos hover/disabled se manejan mejor con clases CSS
   },
   botonCancelarEdicion: {
-    background: "#666", // Gris
-    color: "#EFE4CF",
-    padding: "0.6rem",
-    borderRadius: "10px",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "0.9rem",
-    marginTop: "0.5rem",
-    width: "100%",
+    background: "#666", color: "#EFE4CF", padding: "0.6rem", borderRadius: "10px",
+    border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "0.9rem",
+    marginTop: "0.5rem", width: "100%",
   },
   resumenCompra: {
-    marginTop: "2rem",
-    background: "#1C2340",
-    padding: "1.5rem",
+    marginTop: "2rem", background: "#1C2340", padding: "1rem", // Menos padding
     borderRadius: "12px",
   },
   subtituloProveedor: {
-    color: "#D3C6A3",
-    fontSize: "1.1rem",
-    marginBottom: "0.8rem",
-    borderBottom: "1px dashed #4a5568",
-    paddingBottom: "0.2rem",
+    color: "#D3C6A3", fontSize: "1.1rem", marginBottom: "0.8rem",
+    borderBottom: "1px dashed #4a5568", paddingBottom: "0.2rem",
   },
   tablaContenedor: {
-    overflowX: 'auto', // Para tablas anchas en móviles
+    overflowX: 'auto', // Mantiene el scroll horizontal para tablas
   },
   tabla: {
-    width: "100%",
-    borderCollapse: 'collapse',
-    marginTop: "1rem",
-    color: "#EFE4CF",
-    fontSize: "0.9rem",
+    width: "100%", borderCollapse: 'collapse', marginTop: "1rem", color: "#EFE4CF",
+    fontSize: "0.85rem", // Fuente ligeramente más pequeña en tablas
   },
   th: {
-    background: "#806C4F", // Fondo marrón para cabeceras
-    color: "#0A1034", // Texto oscuro
-    padding: "0.6rem",
-    textAlign: "left",
-    border: "1px solid #4a5568",
+    background: "#806C4F", color: "#0A1034", padding: "0.5rem", // Menos padding
+    textAlign: "left", border: "1px solid #4a5568", whiteSpace: 'nowrap', // Evita que títulos se rompan
   },
   td: {
-    padding: "0.6rem",
-    border: "1px solid #4a5568", // Bordes más sutiles
-    verticalAlign: 'middle',
+    padding: "0.5rem", // Menos padding
+    border: "1px solid #4a5568", verticalAlign: 'middle',
+    whiteSpace: 'normal', // Permitir que el contenido de la celda se envuelva si es largo
   },
   filaEditando: {
-      backgroundColor: 'rgba(211, 198, 163, 0.2)', // Resaltar fila en edición
+      backgroundColor: 'rgba(211, 198, 163, 0.2)',
   },
   botonAccion: {
-    background: "none",
-    border: "none",
-    color: "#D3C6A3",
-    cursor: "pointer",
-    fontSize: "1.1rem",
-    margin: "0 0.3rem",
+    background: "none", border: "none", color: "#D3C6A3", cursor: "pointer",
+    fontSize: "1.1rem", margin: "0 0.1rem", padding: '0.2rem', // Asegurar área de toque
   },
   botonGuardarCompra: {
-    background: "#4CAF50", // Verde para guardar
-    color: "white",
-    padding: "0.8rem 1.5rem",
-    borderRadius: "10px",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "1.1rem",
-    marginTop: "1.5rem",
-    display: 'block',
-    marginLeft: 'auto',
-    marginRight: 'auto',
+    background: "#4CAF50", color: "white", padding: "0.8rem 1.5rem", borderRadius: "10px",
+    border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "1.1rem",
+    marginTop: "1.5rem", display: 'block', marginLeft: 'auto', marginRight: 'auto',
   },
   historial: {
     marginTop: "3rem",
   },
   itemHistorial: {
-    marginBottom: "1.5rem",
-    background: "#1C2340", // Fondo azul claro
-    padding: "1rem 1.5rem",
-    borderRadius: "8px",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+    marginBottom: "1.5rem", background: "#1C2340", padding: "1rem", // Menos padding
+    borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
   },
   cabeceraHistorial: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: "0.8rem",
-    flexWrap: 'wrap', // Para que se ajuste en pantallas pequeñas
-    gap: '1rem',
+    display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+    marginBottom: "0.8rem", flexWrap: 'wrap', gap: '1rem',
   },
   accionesHistorial: {
-    display: "flex",
-    gap: "0.8rem",
-    flexShrink: 0, // Evitar que los botones se achiquen demasiado
+    display: "flex", gap: "0.5rem", // Menos gap
+    flexShrink: 0,
   },
   botonAccionHistorial: {
-    background: "#806C4F",
-    color: "#EFE4CF",
-    padding: "0.4rem 0.8rem",
-    borderRadius: "8px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "0.9rem",
+    background: "#806C4F", color: "#EFE4CF", padding: "0.4rem 0.6rem", // Menos padding
+    borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.85rem", // Más pequeño
   },
   botonAccionHistorialRojo: {
-    background: "#b71c1c", // Rojo oscuro para eliminar
-    color: "#EFE4CF",
-    padding: "0.4rem 0.8rem",
-    borderRadius: "8px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "0.9rem",
+    background: "#b71c1c", color: "#EFE4CF", padding: "0.4rem 0.6rem", // Menos padding
+    borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.85rem", // Más pequeño
   },
   detailsHistorial: {
-      marginTop: '0.5rem',
-      borderTop: '1px solid #4a5568',
-      paddingTop: '0.5rem',
+      marginTop: '0.5rem', borderTop: '1px solid #4a5568', paddingTop: '0.5rem',
   },
   summaryHistorial: {
-      cursor: 'pointer',
-      color: '#D3C6A3',
-      fontSize: '0.9rem',
-      fontWeight: 'bold',
+      cursor: 'pointer', color: '#D3C6A3', fontSize: '0.9rem', fontWeight: 'bold',
   },
   listaDetallesHistorial: {
-      listStyle: 'none',
-      paddingLeft: '1rem',
-      marginTop: '0.5rem',
-      fontSize: '0.85rem',
-      color: '#bdc1c6', // Gris claro para detalles
+      listStyle: 'none', paddingLeft: '0.5rem', marginTop: '0.5rem', // Menos indentación
+      fontSize: '0.8rem', color: '#bdc1c6', // Más pequeño
   }
 };
