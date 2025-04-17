@@ -215,6 +215,7 @@ export default function Seccion6() {
                   { seccion: "ventasCaja", label: "💰 Ventas y Caja" },
                   // Dentro del array que mapea las filas de la tabla de permisos en seccion6.js
                   { seccion: "recetas", label: "🍹 Recetas" }, // Añadir esta línea
+                  { seccion: "ventas", label: "📈 Control Ventas" }, // Añadir esta línea (o el emoji/texto que prefieras)
 
                 ].map(({ seccion, label }) => (
                   <tr key={seccion}>
