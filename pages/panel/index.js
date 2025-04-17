@@ -76,6 +76,8 @@ export default function PanelPrincipal() {
     { texto: "📦 Control de Stock", ruta: "/control-stock", seccion: 'stock' },
     // { texto: "💵 Control de Ventas", ruta: "/ventas", seccion: 'ventasCaja' }, // Descomentar cuando exista
     // { texto: "📈 Reportes y Auditoría", ruta: "/reportes", seccion: 'reportes' }, // Descomentar cuando exista
+    // Dentro del array 'botones' en panel/index.js
+    { texto: "🍹 Recetas", ruta: "/recetas", seccion: 'recetas' }, // Añadir esta línea
     { texto: "💵 Control de Ventas", ruta: "/ventas" },
     { texto: "📈 Reportes y Auditoría", ruta: "/reportes" },
   ];
