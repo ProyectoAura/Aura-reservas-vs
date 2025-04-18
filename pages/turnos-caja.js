@@ -44,6 +44,8 @@ export default function TurnosCaja() {
   const [countedTotals, setCountedTotals] = useState({}); // { Efectivo: '', Tarjeta: '', ... } - Inputs
   const [diferencias, setDiferencias] = useState({}); // { Efectivo: -50, Tarjeta: 0, ... }
   const [isClosing, setIsClosing] = useState(false); // Evitar doble click al cerrar
+  // <<< NUEVO: Estado para total ventas del turno >>>
+  const [totalSalesDuringShift, setTotalSalesDuringShift] = useState(0);
 
   // Estados para Historial
   const [shiftHistory, setShiftHistory] = useState([]);
@@ -53,8 +55,8 @@ export default function TurnosCaja() {
   const [isLoadingClient, setIsLoadingClient] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState(null);
-  // <<< Usaremos 'turnosCaja' como clave de permiso. ¡Añadir en Seccion6! >>>
   const [turnosPermissionLevel, setTurnosPermissionLevel] = useState('no');
+
 
   // --- Carga Inicial: Auth, Permisos, Turno Activo ---
   useEffect(() => {
@@ -115,7 +117,6 @@ export default function TurnosCaja() {
   }, [router]);
 
   // --- Variables de Permisos ---
-  // 'editar' o 'total' para abrir/cerrar, 'ver' para historial
   const canManageShifts = !isLoadingClient && !!currentUser && (turnosPermissionLevel === 'total' || turnosPermissionLevel === 'editar');
   const canViewHistory = !isLoadingClient && !!currentUser && turnosPermissionLevel !== 'no';
 
@@ -123,232 +124,106 @@ export default function TurnosCaja() {
   const handleAbrirTurno = async () => {
     if (!canManageShifts) { alert("Sin permiso para abrir turno."); return; }
     if (activeShift) { alert("Ya hay un turno activo para ti."); return; }
-
     const fondoNum = parseFloat(fondoInicial);
-    if (isNaN(fondoNum) || fondoNum < 0) {
-      alert("Ingresa un fondo inicial válido (número mayor o igual a 0).");
-      return;
-    }
+    if (isNaN(fondoNum) || fondoNum < 0) { alert("Ingresa un fondo inicial válido (número mayor o igual a 0)."); return; }
     if (!window.confirm(`¿Abrir turno con un fondo inicial de $${fondoNum.toFixed(2)}?`)) return;
-
     setIsOpening(true);
     try {
-      const nuevoTurnoData = {
-        fechaHoraApertura: serverTimestamp(),
-        usuarioAperturaId: currentUser.id,
-        usuarioAperturaNombre: currentUser.nombre,
-        fondoInicial: fondoNum,
-        estado: "activo",
-        // Campos que se llenarán al cerrar
-        fechaHoraCierre: null,
-        usuarioCierreId: null,
-        usuarioCierreNombre: null,
-        totalesEsperados: {},
-        totalesContados: {},
-        diferencias: {},
-      };
+      const nuevoTurnoData = { fechaHoraApertura: serverTimestamp(), usuarioAperturaId: currentUser.id, usuarioAperturaNombre: currentUser.nombre, fondoInicial: fondoNum, estado: "activo", fechaHoraCierre: null, usuarioCierreId: null, usuarioCierreNombre: null, totalesEsperados: {}, totalesContados: {}, diferencias: {}, };
       const docRef = await addDoc(collection(db, "turnosCajaAura"), nuevoTurnoData);
-      // Actualizar estado local inmediatamente (fechaHora será null hasta leer de nuevo)
       setActiveShift({ id: docRef.id, ...nuevoTurnoData, fechaHoraApertura: Timestamp.now() });
       setFondoInicial("");
       alert("Turno abierto con éxito.");
-    } catch (error) {
-      console.error("Error al abrir turno:", error);
-      alert(`Error al abrir turno: ${error.message}`);
-    } finally {
-      setIsOpening(false);
-    }
+    } catch (error) { console.error("Error al abrir turno:", error); alert(`Error al abrir turno: ${error.message}`); }
+    finally { setIsOpening(false); }
   };
 
-  // --- Iniciar Cierre de Turno (Calcular Esperados) ---
+  // --- Iniciar Cierre de Turno (MODIFICADO: Calcular Total Ventas) ---
   const iniciarCierreTurno = async () => {
     if (!canManageShifts) { alert("Sin permiso para cerrar turno."); return; }
-    if (!activeShift || !activeShift.fechaHoraApertura) {
-      alert("Error: No se encontró un turno activo válido para cerrar.");
-      return;
-    }
-
-    setLoadingCloseData(true);
-    setShowCloseForm(true); // Mostrar formulario de cierre
-    setExpectedTotals({}); // Resetear
-    setCountedTotals({});
-    setDiferencias({});
-
+    if (!activeShift || !activeShift.fechaHoraApertura) { alert("Error: No se encontró un turno activo válido para cerrar."); return; }
+    setLoadingCloseData(true); setShowCloseForm(true); setExpectedTotals({}); setCountedTotals({}); setDiferencias({}); setTotalSalesDuringShift(0);
     try {
-      // Obtener ventas realizadas DESDE que se abrió el turno
-      const qVentas = query(
-        collection(db, "ventasAura"),
-        where("fechaHora", ">", activeShift.fechaHoraApertura),
-        // Opcional: Filtrar también por usuario si los turnos son estrictamente personales
-        // where("usuarioId", "==", currentUser.id),
-        orderBy("fechaHora") // Ordenar no es estrictamente necesario para sumar
-      );
+      const qVentas = query( collection(db, "ventasAura"), where("fechaHora", ">", activeShift.fechaHoraApertura), orderBy("fechaHora") );
       const ventasSnapshot = await getDocs(qVentas);
-
-      // Calcular totales esperados por medio de pago
       const calculoEsperados = {};
+      let calculoTotalVentas = 0;
       ventasSnapshot.forEach(doc => {
         const venta = doc.data();
         const medioPago = venta.medioPago || "Desconocido";
-        calculoEsperados[medioPago] = (calculoEsperados[medioPago] || 0) + (venta.totalVenta || 0);
+        const ventaTotal = venta.totalVenta || 0;
+        calculoEsperados[medioPago] = (calculoEsperados[medioPago] || 0) + ventaTotal;
+        calculoTotalVentas += ventaTotal;
       });
-
-      // Añadir el fondo inicial al efectivo esperado
       calculoEsperados["Efectivo"] = (calculoEsperados["Efectivo"] || 0) + (activeShift.fondoInicial || 0);
-
       setExpectedTotals(calculoEsperados);
-      console.log("Totales esperados calculados:", calculoEsperados);
-
-      // Inicializar los campos contados (para que existan en el estado)
+      setTotalSalesDuringShift(calculoTotalVentas); // <<< Actualizar estado
+      console.log("Totales esperados:", calculoEsperados); console.log("Total ventas del turno:", calculoTotalVentas);
       const initialCounted = {};
       Object.keys(calculoEsperados).forEach(medio => { initialCounted[medio] = ''; });
-      // Asegurar que Efectivo exista aunque no haya ventas en efectivo
-      if (!initialCounted.hasOwnProperty('Efectivo')) {
-          initialCounted['Efectivo'] = '';
-      }
+      if (!initialCounted.hasOwnProperty('Efectivo')) { initialCounted['Efectivo'] = ''; }
       setCountedTotals(initialCounted);
-
-
-    } catch (error) {
-      console.error("Error calculando totales esperados:", error);
-      alert(`Error al obtener datos para el cierre: ${error.message}`);
-      setShowCloseForm(false); // Ocultar form si hay error
-    } finally {
-      setLoadingCloseData(false);
-    }
+    } catch (error) { console.error("Error calculando totales esperados:", error); alert(`Error al obtener datos para el cierre: ${error.message}`); setShowCloseForm(false); }
+    finally { setLoadingCloseData(false); }
   };
 
   // --- Manejar Input de Montos Contados ---
   const handleCountedChange = (medioPago, valor) => {
-    setCountedTotals(prev => ({
-      ...prev,
-      [medioPago]: valor
-    }));
-
-    // Calcular diferencia al cambiar
+    setCountedTotals(prev => ({ ...prev, [medioPago]: valor }));
     const contadoNum = parseFloat(valor);
     const esperadoNum = expectedTotals[medioPago] || 0;
-    if (!isNaN(contadoNum)) {
-        setDiferencias(prev => ({
-            ...prev,
-            [medioPago]: contadoNum - esperadoNum
-        }));
-    } else {
-         setDiferencias(prev => ({
-            ...prev,
-            [medioPago]: -esperadoNum // Si borra el input, la diferencia es lo esperado negativo
-        }));
-    }
+    if (!isNaN(contadoNum)) { setDiferencias(prev => ({ ...prev, [medioPago]: contadoNum - esperadoNum })); }
+    else { setDiferencias(prev => ({ ...prev, [medioPago]: -esperadoNum })); }
   };
-
 
   // --- Confirmar Cierre de Turno ---
   const handleConfirmarCierre = async () => {
     if (!canManageShifts) { alert("Sin permiso para cerrar turno."); return; }
     if (!activeShift) { alert("Error: No hay turno activo."); return; }
-
-    // Validar que se hayan ingresado los montos contados (al menos efectivo)
     const contadoEfectivoNum = parseFloat(countedTotals['Efectivo']);
-    if (countedTotals['Efectivo'] === '' || isNaN(contadoEfectivoNum) || contadoEfectivoNum < 0) {
-        alert("Ingresa el monto contado en Efectivo (puede ser 0).");
-        return;
-    }
-    // Podrías añadir validación para otros métodos si es necesario
-
-    // Recalcular diferencias finales por si acaso
-    const finalContados = {};
-    const finalDiferencias = {};
-    let hayDiferenciaSignificativa = false;
+    if (countedTotals['Efectivo'] === '' || isNaN(contadoEfectivoNum) || contadoEfectivoNum < 0) { alert("Ingresa el monto contado en Efectivo (puede ser 0)."); return; }
+    const finalContados = {}; const finalDiferencias = {}; let hayDiferenciaSignificativa = false;
     Object.keys(expectedTotals).forEach(medio => {
-        const contadoNum = parseFloat(countedTotals[medio] || '0'); // Asumir 0 si está vacío
+        const contadoNum = parseFloat(countedTotals[medio] || '0');
         finalContados[medio] = isNaN(contadoNum) ? 0 : contadoNum;
         finalDiferencias[medio] = finalContados[medio] - (expectedTotals[medio] || 0);
-        if (Math.abs(finalDiferencias[medio]) > 0.01) { // Considerar diferencia si es mayor a 1 centavo
-            hayDiferenciaSignificativa = true;
-        }
+        if (Math.abs(finalDiferencias[medio]) > 0.01) { hayDiferenciaSignificativa = true; }
     });
-     // Asegurar que Efectivo esté si no estaba en expected
-     if (!finalContados.hasOwnProperty('Efectivo')) {
+    if (!finalContados.hasOwnProperty('Efectivo')) {
         const contadoNum = parseFloat(countedTotals['Efectivo'] || '0');
         finalContados['Efectivo'] = isNaN(contadoNum) ? 0 : contadoNum;
         finalDiferencias['Efectivo'] = finalContados['Efectivo'] - (activeShift.fondoInicial || 0);
-         if (Math.abs(finalDiferencias['Efectivo']) > 0.01) {
-             hayDiferenciaSignificativa = true;
-         }
-     }
-
-
-    let confirmMsg = "Resumen del Cierre:\n";
-    Object.entries(finalDiferencias).forEach(([medio, diff]) => {
-        confirmMsg += `- ${medio}: ${diff === 0 ? 'OK' : (diff > 0 ? `Sobrante $${diff.toFixed(2)}` : `Faltante $${Math.abs(diff).toFixed(2)}`)}\n`;
-    });
-    confirmMsg += "\n¿Confirmar cierre de turno?";
-
-    if (hayDiferenciaSignificativa) {
-        if (!window.confirm(`¡ATENCIÓN! Hay diferencias en el arqueo.\n${confirmMsg}`)) return;
-    } else {
-         if (!window.confirm(confirmMsg)) return;
+        if (Math.abs(finalDiferencias['Efectivo']) > 0.01) { hayDiferenciaSignificativa = true; }
     }
-
-
+    let confirmMsg = "Resumen del Cierre:\n";
+    Object.entries(finalDiferencias).forEach(([medio, diff]) => { confirmMsg += `- ${medio}: ${diff === 0 ? 'OK' : (diff > 0 ? `Sobrante $${diff.toFixed(2)}` : `Faltante $${Math.abs(diff).toFixed(2)}`)}\n`; });
+    confirmMsg += "\n¿Confirmar cierre de turno?";
+    if (hayDiferenciaSignificativa) { if (!window.confirm(`¡ATENCIÓN! Hay diferencias en el arqueo.\n${confirmMsg}`)) return; }
+    else { if (!window.confirm(confirmMsg)) return; }
     setIsClosing(true);
     try {
       const turnoRef = doc(db, "turnosCajaAura", activeShift.id);
-      await updateDoc(turnoRef, {
-        fechaHoraCierre: serverTimestamp(),
-        usuarioCierreId: currentUser.id,
-        usuarioCierreNombre: currentUser.nombre,
-        totalesEsperados: expectedTotals,
-        totalesContados: finalContados,
-        diferencias: finalDiferencias,
-        estado: "cerrado",
-      });
-
-      setActiveShift(null); // Ya no hay turno activo
-      setShowCloseForm(false); // Ocultar formulario
-      alert("Turno cerrado con éxito.");
-      cargarHistorialTurnos(); // Recargar historial
-
-    } catch (error) {
-      console.error("Error al cerrar turno:", error);
-      alert(`Error al cerrar turno: ${error.message}`);
-    } finally {
-      setIsClosing(false);
-    }
+      await updateDoc(turnoRef, { fechaHoraCierre: serverTimestamp(), usuarioCierreId: currentUser.id, usuarioCierreNombre: currentUser.nombre, totalesEsperados: expectedTotals, totalesContados: finalContados, diferencias: finalDiferencias, estado: "cerrado", });
+      setActiveShift(null); setShowCloseForm(false); alert("Turno cerrado con éxito."); cargarHistorialTurnos();
+    } catch (error) { console.error("Error al cerrar turno:", error); alert(`Error al cerrar turno: ${error.message}`); }
+    finally { setIsClosing(false); }
   };
 
   // --- Cargar Historial de Turnos ---
   const cargarHistorialTurnos = async () => {
-      if (!canViewHistory) return; // No cargar si no puede ver
-      setLoadingHistory(true);
+      if (!canViewHistory) return; setLoadingHistory(true);
       try {
-          const q = query(
-              collection(db, "turnosCajaAura"),
-              orderBy("fechaHoraApertura", "desc"), // Más recientes primero
-              limit(50) // Limitar historial inicial
-          );
+          const q = query( collection(db, "turnosCajaAura"), orderBy("fechaHoraApertura", "desc"), limit(50) );
           const snapshot = await getDocs(q);
           const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           setShiftHistory(history);
-      } catch (error) {
-          console.error("Error cargando historial de turnos:", error);
-      } finally {
-          setLoadingHistory(false);
-      }
+      } catch (error) { console.error("Error cargando historial de turnos:", error); }
+      finally { setLoadingHistory(false); }
   };
-
-  // Cargar historial la primera vez que se pueda ver
-  useEffect(() => {
-      if (canViewHistory) {
-          cargarHistorialTurnos();
-      }
-  }, [canViewHistory]); // Depende de si puede ver
-
+  useEffect(() => { if (canViewHistory) { cargarHistorialTurnos(); } }, [canViewHistory]);
 
   // --- Renderizado ---
-  if (isLoadingClient || loadingActiveShift) {
-    return <div style={estilos.contenedor}><p style={estilos.loading}>Cargando...</p></div>;
-  }
+  if (isLoadingClient || loadingActiveShift) { return <div style={estilos.contenedor}><p style={estilos.loading}>Cargando...</p></div>; }
 
   return (
     <div style={estilos.contenedor}>
@@ -357,52 +232,34 @@ export default function TurnosCaja() {
 
       {/* Sección Principal: Abrir o Cerrar */}
       <div style={estilos.seccionPrincipal}>
+        {/* --- Formulario Abrir (Solo si no hay turno activo y no se está cerrando) --- */}
         {!activeShift && !showCloseForm && (
-          // Formulario para Abrir Turno
           <div style={estilos.formAbrir}>
             <h2 style={estilos.subtitulo}>Abrir Nuevo Turno</h2>
             <div style={estilos.campoGrupo}>
               <label style={estilos.labelCampo} htmlFor="fondoInicial">Fondo Inicial ($):</label>
-              <input
-                type="number"
-                id="fondoInicial"
-                value={fondoInicial}
-                onChange={(e) => setFondoInicial(e.target.value)}
-                style={estilos.inputInline}
-                placeholder="Efectivo inicial en caja"
-                min="0"
-                step="any"
-                disabled={!canManageShifts || isOpening}
-              />
+              <input type="number" id="fondoInicial" value={fondoInicial} onChange={(e) => setFondoInicial(e.target.value)} style={estilos.inputInline} placeholder="Efectivo inicial en caja" min="0" step="any" disabled={!canManageShifts || isOpening} />
             </div>
-            <button
-              onClick={handleAbrirTurno}
-              style={estilos.botonAccionPrincipal}
-              disabled={!canManageShifts || isOpening || !fondoInicial}
-            >
+            <button onClick={handleAbrirTurno} style={estilos.botonAccionPrincipal} disabled={!canManageShifts || isOpening || !fondoInicial} >
               {isOpening ? "Abriendo..." : "☀️ Abrir Turno"}
             </button>
           </div>
         )}
 
+        {/* --- Info Turno Activo (Solo si hay turno activo y no se está cerrando) --- */}
         {activeShift && !showCloseForm && (
-          // Mostrar info del turno activo y botón para cerrar
           <div style={estilos.turnoActivoInfo}>
             <h2 style={estilos.subtitulo}>Turno Activo</h2>
             <p>Abierto por: <strong>{activeShift.usuarioAperturaNombre}</strong></p>
             <p>Desde: <strong>{formatTimestamp(activeShift.fechaHoraApertura)}</strong></p>
             <p>Fondo Inicial: <strong>${activeShift.fondoInicial?.toFixed(2)}</strong></p>
-            <button
-              onClick={iniciarCierreTurno}
-              style={estilos.botonAccionPrincipalRojo}
-              disabled={!canManageShifts || loadingCloseData}
-            >
+            <button onClick={iniciarCierreTurno} style={estilos.botonAccionPrincipalRojo} disabled={!canManageShifts || loadingCloseData} >
               {loadingCloseData ? "Calculando..." : "🌙 Iniciar Cierre de Turno"}
             </button>
           </div>
         )}
 
-        {/* Formulario de Cierre de Turno */}
+        {/* --- Formulario de Cierre de Turno (Solo si se inició el cierre y hay turno activo) --- */}
         {showCloseForm && activeShift && (
           <div style={estilos.formCerrar}>
             <h2 style={estilos.subtitulo}>Cerrar Turno - Arqueo</h2>
@@ -411,94 +268,54 @@ export default function TurnosCaja() {
               <>
                 <p>Turno abierto por <strong>{activeShift.usuarioAperturaNombre}</strong> el {formatTimestamp(activeShift.fechaHoraApertura)}</p>
                 <p>Fondo Inicial: ${activeShift.fondoInicial?.toFixed(2)}</p>
+                {/* <<< NUEVO: Mostrar Total Ventas >>> */}
+                <p style={estilos.totalVentasTurno}>
+                    Total Ventas del Turno (Todos los Medios): <strong>${totalSalesDuringShift.toFixed(2)}</strong>
+                </p>
+                {/* <<< FIN NUEVO >>> */}
                 <h3 style={estilos.subSubtitulo}>Totales Esperados vs. Contados</h3>
                 <div style={estilos.tablaArqueo}>
-                  <div style={estilos.filaArqueoHeader}>
-                    <div>Medio de Pago</div>
-                    <div>Esperado ($)</div>
-                    <div>Contado ($)</div>
-                    <div>Diferencia ($)</div>
-                  </div>
-                  {/* Asegurar que Efectivo siempre aparezca */}
+                  <div style={estilos.filaArqueoHeader}> <div>Medio de Pago</div> <div>Esperado ($)</div> <div>Contado ($)</div> <div>Diferencia ($)</div> </div>
+                  {/* Efectivo (asegurar que aparezca) */}
                   {(!expectedTotals || !Object.keys(expectedTotals).includes('Efectivo')) && (
                       <div style={estilos.filaArqueo}>
                           <div>Efectivo</div>
                           <div>{(activeShift.fondoInicial || 0).toFixed(2)}</div>
-                          <div>
-                              <input
-                                  type="number"
-                                  value={countedTotals['Efectivo'] || ''}
-                                  onChange={(e) => handleCountedChange('Efectivo', e.target.value)}
-                                  style={estilos.inputArqueo}
-                                  placeholder="Contado"
-                                  min="0" step="any"
-                                  disabled={isClosing}
-                              />
-                          </div>
-                          <div style={{ color: diferencias['Efectivo'] < 0 ? 'red' : (diferencias['Efectivo'] > 0 ? 'orange' : 'inherit') }}>
-                              {(diferencias['Efectivo'] || -(activeShift.fondoInicial || 0)).toFixed(2)}
-                          </div>
+                          <div> <input type="number" value={countedTotals['Efectivo'] || ''} onChange={(e) => handleCountedChange('Efectivo', e.target.value)} style={estilos.inputArqueo} placeholder="Contado" min="0" step="any" disabled={isClosing} /> </div>
+                          <div style={{ color: diferencias['Efectivo'] < 0 ? 'red' : (diferencias['Efectivo'] > 0 ? 'orange' : 'inherit') }}> {(diferencias['Efectivo'] || -(activeShift.fondoInicial || 0)).toFixed(2)} </div>
                       </div>
                   )}
-                  {/* Mapear otros medios de pago */}
+                  {/* Otros medios */}
                   {Object.entries(expectedTotals)
-                    // .sort(([medioA], [medioB]) => medioA.localeCompare(medioB)) // Ordenar opcional
                     .map(([medio, esperado]) => {
-                      // Si es efectivo, ya lo mostramos arriba si no había ventas
-                      if (medio === 'Efectivo' && !Object.keys(expectedTotals).includes('Efectivo')) return null;
-
-                      const diferencia = diferencias[medio] || -esperado; // Diferencia inicial si no se contó
+                      // Evitar duplicar Efectivo si ya se mostró arriba
+                      if (medio === 'Efectivo' && (!expectedTotals || !Object.keys(expectedTotals).includes('Efectivo'))) return null;
+                      const diferencia = diferencias[medio] || -esperado;
                       return (
                           <div key={medio} style={estilos.filaArqueo}>
                               <div>{medio}</div>
                               <div>{esperado.toFixed(2)}</div>
-                              <div>
-                                  <input
-                                      type="number"
-                                      value={countedTotals[medio] || ''}
-                                      onChange={(e) => handleCountedChange(medio, e.target.value)}
-                                      style={estilos.inputArqueo}
-                                      placeholder="Contado"
-                                      min="0" step="any"
-                                      disabled={isClosing}
-                                  />
-                              </div>
-                              <div style={{ color: diferencia < 0 ? 'red' : (diferencia > 0 ? 'orange' : 'inherit') }}>
-                                  {diferencia.toFixed(2)}
-                              </div>
+                              <div> <input type="number" value={countedTotals[medio] || ''} onChange={(e) => handleCountedChange(medio, e.target.value)} style={estilos.inputArqueo} placeholder="Contado" min="0" step="any" disabled={isClosing} /> </div>
+                              <div style={{ color: diferencia < 0 ? 'red' : (diferencia > 0 ? 'orange' : 'inherit') }}> {diferencia.toFixed(2)} </div>
                           </div>
                       );
                   })}
                 </div>
                 <div style={estilos.botonesCierre}>
-                    <button
-                        onClick={handleConfirmarCierre}
-                        style={estilos.botonAccionPrincipal}
-                        disabled={isClosing || loadingCloseData}
-                    >
-                        {isClosing ? "Cerrando..." : "✔️ Confirmar Cierre"}
-                    </button>
-                    <button
-                        onClick={() => setShowCloseForm(false)}
-                        style={estilos.botonCancelar}
-                        disabled={isClosing}
-                    >
-                        ✗ Cancelar Cierre
-                    </button>
+                    <button onClick={handleConfirmarCierre} style={estilos.botonAccionPrincipal} disabled={isClosing || loadingCloseData} > {isClosing ? "Cerrando..." : "✔️ Confirmar Cierre"} </button>
+                    <button onClick={() => setShowCloseForm(false)} style={estilos.botonCancelar} disabled={isClosing} > ✗ Cancelar Cierre </button>
                 </div>
               </>
             )}
           </div>
         )}
-      </div>
+      </div> {/* Fin seccionPrincipal */}
 
       {/* Historial de Turnos */}
       {canViewHistory && (
           <div style={estilos.seccionHistorial}>
               <h2 style={estilos.subtitulo}>Historial de Turnos Cerrados</h2>
-              <button onClick={cargarHistorialTurnos} style={estilos.botonRecargar} disabled={loadingHistory}>
-                  {loadingHistory ? 'Cargando...' : 'Recargar Historial'}
-              </button>
+              <button onClick={cargarHistorialTurnos} style={estilos.botonRecargar} disabled={loadingHistory}> {loadingHistory ? 'Cargando...' : 'Recargar Historial'} </button>
               {loadingHistory && <p style={estilos.loading}>Cargando historial...</p>}
               {!loadingHistory && shiftHistory.length === 0 && <p>No hay turnos cerrados registrados.</p>}
               {!loadingHistory && shiftHistory.map(turno => (
@@ -515,25 +332,11 @@ export default function TurnosCaja() {
                           <p><strong>Cerrado por:</strong> {turno.usuarioCierreNombre || '?'} ({formatTimestamp(turno.fechaHoraCierre)})</p>
                           <p><strong>Fondo Inicial:</strong> ${turno.fondoInicial?.toFixed(2)}</p>
                           <div style={estilos.tablaArqueo}>
-                              <div style={estilos.filaArqueoHeader}>
-                                  <div>Medio Pago</div>
-                                  <div>Esperado ($)</div>
-                                  <div>Contado ($)</div>
-                                  <div>Diferencia ($)</div>
-                              </div>
+                              <div style={estilos.filaArqueoHeader}> <div>Medio Pago</div> <div>Esperado ($)</div> <div>Contado ($)</div> <div>Diferencia ($)</div> </div>
                               {Object.entries(turno.totalesEsperados || {}).map(([medio, esperado]) => {
                                   const contado = turno.totalesContados?.[medio] || 0;
                                   const diferencia = turno.diferencias?.[medio] || 0;
-                                  return (
-                                      <div key={medio} style={estilos.filaArqueo}>
-                                          <div>{medio}</div>
-                                          <div>{esperado.toFixed(2)}</div>
-                                          <div>{contado.toFixed(2)}</div>
-                                          <div style={{ color: diferencia < 0 ? 'red' : (diferencia > 0 ? 'orange' : 'inherit') }}>
-                                              {diferencia.toFixed(2)}
-                                          </div>
-                                      </div>
-                                  );
+                                  return ( <div key={medio} style={estilos.filaArqueo}> <div>{medio}</div> <div>{esperado.toFixed(2)}</div> <div>{contado.toFixed(2)}</div> <div style={{ color: diferencia < 0 ? 'red' : (diferencia > 0 ? 'orange' : 'inherit') }}> {diferencia.toFixed(2)} </div> </div> );
                               })}
                           </div>
                       </div>
@@ -542,7 +345,7 @@ export default function TurnosCaja() {
           </div>
       )}
 
-    </div>
+    </div> // Fin contenedor principal
   );
 }
 
@@ -571,7 +374,8 @@ const estilos = {
   inputArqueo: { padding: "0.4rem", fontSize: "0.9rem", borderRadius: "6px", border: "1px solid #4a5568", backgroundColor: "#EFE4CF", color: "#2c1b0f", width: '100%', textAlign: 'right' },
   seccionHistorial: { marginTop: '3rem', maxWidth: '900px', margin: '3rem auto 0 auto' },
   botonRecargar: { background: "#806C4F", color: "#EFE4CF", padding: "0.5rem 1rem", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold", marginBottom: '1rem', '&:disabled': { opacity: 0.6 } },
-  itemHistorial: { marginBottom: "1rem", background: "#1C2340", padding: "0", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)", fontSize: '0.9rem', overflow: 'hidden' }, // overflow hidden para bordes
+  itemHistorial: { marginBottom: "1rem", background: "#1C2340", padding: "0", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)", fontSize: '0.9rem', overflow: 'hidden' },
   summaryHistorial: { cursor: 'pointer', color: '#D3C6A3', fontWeight: 'bold', padding: '0.8rem 1.2rem', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', gap: '1rem' },
   detallesHistorial: { padding: '0.5rem 1.2rem 1.2rem 1.2rem', borderTop: '1px solid #4a5568' },
+  totalVentasTurno: { fontSize: '1.1rem', fontWeight: 'bold', color: '#D3C6A3', marginTop: '0.5rem', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px dashed #4a5568', },
 };
