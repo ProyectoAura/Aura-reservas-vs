@@ -71,12 +71,10 @@ export default function PanelPrincipal() {
   // Definición de botones (Añadido Caja)
   const botones = [
     { texto: "📊 Panel Administrativo", ruta: "/admin", seccion: 'reservas' }, // O 'seguridad' si prefieres
+    { texto: "⏱️ Gestión de Turnos", ruta: "/turnos-caja", seccion: 'turnosCaja' },
     { texto: "💰 Caja", ruta: "/caja", seccion: 'ventasCaja' }, // <<< AÑADIDO >>>
     { texto: "📥 Control de Compras", ruta: "/compras", seccion: 'compras' },
     { texto: "📦 Control de Stock", ruta: "/control-stock", seccion: 'stock' },
-    // { texto: "💵 Control de Ventas", ruta: "/ventas", seccion: 'ventasCaja' }, // Descomentar cuando exista
-    // { texto: "📈 Reportes y Auditoría", ruta: "/reportes", seccion: 'reportes' }, // Descomentar cuando exista
-    // Dentro del array 'botones' en panel/index.js
     { texto: "🍹 Recetas", ruta: "/recetas", seccion: 'recetas' }, // Añadir esta línea
     { texto: "💵 Control de Ventas", ruta: "/ventas" },
     { texto: "📈 Reportes y Auditoría", ruta: "/reportes" },
@@ -85,7 +83,6 @@ export default function PanelPrincipal() {
   return (
     <div style={estilos.contenedor}>
       <img src="/logo-aura.png" alt="AURA" style={estilos.logoImg} />
-      {/* Saludo al usuario */}
       <p style={estilos.bienvenida}>
           Bienvenido, {usuario?.nombre || 'Usuario'} ({usuario?.rol || 'Rol desconocido'})
       </p>
@@ -101,7 +98,6 @@ export default function PanelPrincipal() {
         ))}
       </div>
 
-      {/* Botón de Cerrar Sesión */}
       <button style={estilos.botonLogout} onClick={handleLogout}>
           Cerrar Sesión
       </button>
