@@ -29,7 +29,11 @@ export default function Ventas() {
   const [usuariosLista, setUsuariosLista] = useState([]); // Para el dropdown de usuarios
   const [selectedUserFilter, setSelectedUserFilter] = useState(""); // ID del usuario a filtrar
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState(""); // Medio de pago a filtrar
-
+  
+  const [filtroInvitacion, setFiltroInvitacion] = useState("");
+  const [filtroConDescuento, setFiltroConDescuento] = useState(false);
+  const [filtroAnuladas, setFiltroAnuladas] = useState(false);
+  
   // Estados para permisos y carga cliente
   const [isLoadingClient, setIsLoadingClient] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState(null);
@@ -75,6 +79,7 @@ export default function Ventas() {
     checkAuthAndLoadUsers();
   }, [router]);
 
+ 
   // --- MODIFICADO: Función de Carga de Ventas (con más filtros) ---
   const cargarVentas = async () => {
     if (isLoadingClient || !fechaDesde || !fechaHasta) {
@@ -103,18 +108,28 @@ export default function Ventas() {
       if (selectedPaymentFilter) {
         constraints.push(where("medioPago", "==", selectedPaymentFilter));
       }
-
-      // Añadir ordenamiento al final
+      if (filtroInvitacion === "si") {
+        constraints.push(where("esInvitacion", "==", true));
+      } else if (filtroInvitacion === "no") {
+        constraints.push(where("esInvitacion", "==", false));
+      }
       constraints.push(orderBy("fechaHora", "desc"));
 
       const q = query(collection(db, "ventasAura"), ...constraints);
 
       const snapshot = await getDocs(q);
-      const listaVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let listaVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`Ventas cargadas (Filtros: ${fechaDesde}-${fechaHasta}, User: ${selectedUserFilter || 'Todos'}, Pago: ${selectedPaymentFilter || 'Todos'}):`, listaVentas.length);
       const total = listaVentas.reduce((sum, venta) => sum + (venta.totalVenta || 0), 0);
       setTotalFiltrado(total);
       setVentasHistorial(listaVentas);
-      console.log(`Ventas cargadas (Filtros: ${fechaDesde}-${fechaHasta}, User: ${selectedUserFilter || 'Todos'}, Pago: ${selectedPaymentFilter || 'Todos'}):`, listaVentas.length);
+
+      if (filtroConDescuento) {
+        listaVentas = listaVentas.filter(v => v.descuentoAplicado > 0);
+      }
+      if (filtroAnuladas) {
+        listaVentas = listaVentas.filter(v => v.anulada === true);
+      }
 
     } catch (error) {
       console.error("Error cargando historial de ventas filtrado:", error);
