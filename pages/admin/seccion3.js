@@ -1,187 +1,212 @@
 // Sección 3 – Turnos y Horarios
-import { useState, useEffect, useRef, useCallback } from "react";
-// *** Import Firestore functions and db ***
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../../firebase/firebaseConfig"; // Make sure this path is correct
-
-// --- Debounce function ---
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
-// --- End Debounce ---
+import { useState, useEffect } from "react"; // Añadido useEffect
+import { db } from "../../firebaseConfig"; // <<< IMPORTANTE: Asegúrate que la ruta sea correcta
+import { doc, getDoc, setDoc } from "firebase/firestore"; // <<< AÑADIDO: Firestore functions
+import { useRouter } from "next/router"; // <<< AÑADIDO: Para posible protección
+import Cookies from "js-cookie"; // <<< AÑADIDO: Para protección
 
 export default function Seccion3() {
+  const router = useRouter(); // <<< AÑADIDO
   const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const turnosBase = [
     "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
     "22:00", "22:30", "23:00", "23:30", "00:00", "00:30", "01:00"
   ];
 
-  // Default state if nothing is loaded from Firestore
-  const initialState = diasSemana.reduce((acc, dia) => {
-    acc[dia] = {
-      visible: true,
-      turnos: turnosBase.map((hora) => ({ hora, activo: true, capacidad: 15 }))
-    };
-    return acc;
-  }, {});
+  // Configuración por defecto si no hay nada en Firestore
+  const getDefaultConfig = () => {
+    return diasSemana.reduce((acc, dia) => {
+      acc[dia] = {
+        visible: true,
+        turnos: turnosBase.map((hora) => ({ hora, activo: true, capacidad: 15 }))
+      };
+      return acc;
+    }, {});
+  };
 
-  const [configTurnos, setConfigTurnos] = useState(initialState);
-  // *** Add Loading State ***
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const isInitialLoad = useRef(true); // To prevent saving on initial load
+  // --- Estados ---
+  const [configTurnos, setConfigTurnos] = useState(null); // Inicializar como null
+  const [loadingConfig, setLoadingConfig] = useState(true); // Estado de carga inicial
+  const [savingConfig, setSavingConfig] = useState(false); // Estado de guardado
+  const [isLoadingClient, setIsLoadingClient] = useState(true); // Para protección
+  const [permissionLevel, setPermissionLevel] = useState('no'); // Nivel de permiso
 
-  // --- Firestore Document Reference ---
-  const configDocRef = doc(db, "configuracionAura", "turnosHorarios");
-  // ---
-
-  // *** Load Configuration on Mount ***
+  // --- Protección y Carga Inicial ---
   useEffect(() => {
-    const loadConfig = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const docSnap = await getDoc(configDocRef);
-        if (docSnap.exists()) {
-          console.log("Configuración cargada desde Firestore.");
-          // Basic validation/merge in case structure changed
-          const loadedData = docSnap.data();
-          const mergedState = { ...initialState }; // Start with default structure
-          Object.keys(mergedState).forEach(dia => {
-            if (loadedData[dia]) {
-              mergedState[dia] = {
-                ...mergedState[dia], // Keep default structure
-                ...loadedData[dia], // Overwrite with loaded values
-                // Ensure 'turnos' array has the correct structure
-                turnos: mergedState[dia].turnos.map(defaultTurno => {
-                  const loadedTurno = loadedData[dia].turnos?.find(t => t.hora === defaultTurno.hora);
-                  return loadedTurno ? { ...defaultTurno, ...loadedTurno } : defaultTurno;
-                })
-              };
-            }
-          });
-          setConfigTurnos(mergedState);
+    const checkAuthAndLoad = async () => {
+      setIsLoadingClient(true);
+      setLoadingConfig(true); // Iniciar carga de config también
 
+      // 1. Autorización
+      const autorizado = localStorage.getItem("adminAutorizado") === "true" || Cookies.get("adminAutorizado") === "true";
+      if (!autorizado) { router.replace("/"); return; }
+
+      // 2. Permisos (Asumiendo que esta sección requiere permiso 'editar' o 'total' en 'reservas' o una clave propia)
+      const usuarioGuardado = JSON.parse(localStorage.getItem("usuarioAura"));
+      const userRole = usuarioGuardado?.rol;
+      const isOwner = usuarioGuardado?.contraseña === 'Aura2025';
+      if (!userRole) { router.replace("/"); return; }
+
+      let perm = 'no';
+      try {
+        const permisosSnap = await getDoc(doc(db, "permisosAura", "roles")); // Asumiendo doc 'roles'
+        if (permisosSnap.exists()) {
+          // Ajusta 'reservas' si tienes una clave específica para config de turnos
+          perm = permisosSnap.data()?.reservas?.[userRole] || 'no';
+        }
+      } catch (error) { console.error("Error cargando permisos:", error); }
+
+      const finalPermission = isOwner ? 'total' : perm;
+      setPermissionLevel(finalPermission);
+
+      if (finalPermission !== 'total' && finalPermission !== 'editar') {
+        alert("No tienes permiso para editar la configuración de turnos.");
+        router.replace('/panel'); // O a donde corresponda
+        setIsLoadingClient(false);
+        setLoadingConfig(false);
+        return;
+      }
+      setIsLoadingClient(false); // Termina chequeo cliente/permisos
+
+      // 3. Cargar Configuración desde Firestore
+      const configRef = doc(db, "configuracionAura", "turnosHorarios");
+      try {
+        const docSnap = await getDoc(configRef);
+        if (docSnap.exists()) {
+          console.log("Configuración de turnos cargada desde Firestore.");
+          setConfigTurnos(docSnap.data()); // Usar datos de Firestore
         } else {
           console.log("No se encontró configuración en Firestore, usando valores por defecto.");
-          setConfigTurnos(initialState); // Use default if no doc exists
+          setConfigTurnos(getDefaultConfig()); // Usar configuración por defecto
         }
-      } catch (err) {
-        console.error("Error al cargar configuración:", err);
-        setError("Error al cargar la configuración. Usando valores por defecto.");
-        setConfigTurnos(initialState); // Use default on error
+      } catch (error) {
+        console.error("Error al cargar configuración de turnos:", error);
+        alert("Error al cargar la configuración. Se usarán valores por defecto.");
+        setConfigTurnos(getDefaultConfig()); // Usar defecto en caso de error
       } finally {
-        setLoading(false);
-        // Set initial load ref to false *after* the first load attempt
-        setTimeout(() => { isInitialLoad.current = false; }, 0);
+        setLoadingConfig(false); // Terminar carga de config
       }
     };
 
-    loadConfig();
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs only once on mount
+    checkAuthAndLoad();
+  }, [router]); // Dependencia del router
 
-  // *** Debounced Save Function ***
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = useCallback(
-    debounce(async (newConfig) => {
-      console.log("Guardando configuración en Firestore...");
-      try {
-        await setDoc(configDocRef, newConfig, { merge: true }); // Use setDoc with merge to create/update
-        console.log("Configuración guardada.");
-        setError(null); // Clear error on successful save
-      } catch (err) {
-        console.error("Error al guardar configuración:", err);
-        setError("Error al guardar la configuración. Los cambios podrían no persistir.");
-      }
-    }, 1500), // Debounce saves by 1.5 seconds
-    [configDocRef] // Dependency for useCallback
-  );
-
-  // *** Save Configuration on Change ***
-  useEffect(() => {
-    // Only save after the initial load is complete and not during loading
-    if (!isInitialLoad.current && !loading) {
-      debouncedSave(configTurnos);
+  // --- Función para Guardar Configuración en Firestore ---
+  const saveConfigToFirestore = async (newConfig) => {
+    if (permissionLevel !== 'total' && permissionLevel !== 'editar') {
+      console.warn("Intento de guardado sin permiso.");
+      return; // No guardar si no tiene permiso
     }
-  }, [configTurnos, loading, debouncedSave]); // Depend on configTurnos, loading state and the debounced function
+    setSavingConfig(true);
+    const configRef = doc(db, "configuracionAura", "turnosHorarios");
+    try {
+      await setDoc(configRef, newConfig); // setDoc sobrescribe el documento completo
+      console.log("Configuración de turnos guardada en Firestore.");
+      // Podrías añadir un feedback visual breve aquí si lo deseas
+    } catch (error) {
+      console.error("Error al guardar configuración en Firestore:", error);
+      alert("Error al guardar la configuración. Intenta nuevamente.");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
-  // --- Handler Functions (Modified to update state, triggering the save useEffect) ---
+  // --- Modificar Funciones Existentes para Guardar ---
 
   const toggleDiaVisible = (dia) => {
-    setConfigTurnos(prev => ({
-      ...prev,
+    // Calcula el nuevo estado
+    const newConfig = {
+      ...configTurnos,
       [dia]: {
-        ...prev[dia],
-        visible: !prev[dia].visible
+        ...configTurnos[dia],
+        visible: !configTurnos[dia].visible
       }
-    }));
+    };
+    // Actualiza el estado local
+    setConfigTurnos(newConfig);
+    // Guarda en Firestore
+    saveConfigToFirestore(newConfig);
   };
 
   const toggleTurno = (dia, index) => {
-    setConfigTurnos(prev => {
-      const nuevaConfig = { ...prev };
-      // Deep copy the specific day's turnos array to avoid mutation issues
-      const nuevosTurnos = [...nuevaConfig[dia].turnos];
-      nuevosTurnos[index] = {
+    // Calcula el nuevo estado
+    const nuevaConfig = { ...configTurnos };
+    // ¡OJO! Necesitas clonar el array de turnos para evitar mutación directa
+    const nuevosTurnos = [...nuevaConfig[dia].turnos];
+    nuevosTurnos[index] = {
         ...nuevosTurnos[index],
         activo: !nuevosTurnos[index].activo
-      };
-      nuevaConfig[dia] = { ...nuevaConfig[dia], turnos: nuevosTurnos };
-      return nuevaConfig;
-    });
+    };
+    nuevaConfig[dia] = { ...nuevaConfig[dia], turnos: nuevosTurnos };
+
+    // Actualiza el estado local
+    setConfigTurnos(nuevaConfig);
+    // Guarda en Firestore
+    saveConfigToFirestore(nuevaConfig);
   };
 
   const cambiarCapacidad = (dia, index, valor) => {
-    setConfigTurnos(prev => {
-      const nuevaConfig = { ...prev };
-      const nuevosTurnos = [...nuevaConfig[dia].turnos];
-      nuevosTurnos[index] = {
+    // Calcula el nuevo estado
+    const nuevaConfig = { ...configTurnos };
+    // Clonar array de turnos
+    const nuevosTurnos = [...nuevaConfig[dia].turnos];
+    nuevosTurnos[index] = {
         ...nuevosTurnos[index],
         capacidad: parseInt(valor) || 0
-      };
-      nuevaConfig[dia] = { ...nuevaConfig[dia], turnos: nuevosTurnos };
-      return nuevaConfig;
-    });
+    };
+    nuevaConfig[dia] = { ...nuevaConfig[dia], turnos: nuevosTurnos };
+
+    // Actualiza el estado local
+    setConfigTurnos(nuevaConfig);
+    // Guarda en Firestore
+    saveConfigToFirestore(nuevaConfig);
   };
 
   const toggleTodos = (dia) => {
-    setConfigTurnos(prev => {
-      const todosActivos = prev[dia].turnos.every((t) => t.activo);
-      const nuevaConfig = { ...prev };
-      nuevaConfig[dia] = {
-        ...nuevaConfig[dia],
-        turnos: nuevaConfig[dia].turnos.map((turno) => ({
-          ...turno,
-          activo: !todosActivos
-        }))
-      };
-      return nuevaConfig;
-    });
+    // Calcula el nuevo estado
+    const todosActivos = configTurnos[dia].turnos.every((t) => t.activo);
+    const nuevaConfig = { ...configTurnos };
+    // Mapear para crear un NUEVO array de turnos
+    const nuevosTurnos = nuevaConfig[dia].turnos.map((turno) => ({
+      ...turno,
+      activo: !todosActivos
+    }));
+    nuevaConfig[dia] = { ...nuevaConfig[dia], turnos: nuevosTurnos };
+
+    // Actualiza el estado local
+    setConfigTurnos(nuevaConfig);
+    // Guarda en Firestore
+    saveConfigToFirestore(nuevaConfig);
   };
 
-  // --- Render Logic ---
-
-  // Show loading indicator
-  if (loading) {
-    return <div style={{ ...estilos.contenedor, textAlign: 'center', paddingTop: '5rem' }}>Cargando configuración...</div>;
+  // --- Renderizado ---
+  // Mostrar carga mientras se verifica auth/permisos o se carga la config
+  if (isLoadingClient || loadingConfig) {
+    return <div style={estilos.contenedor}><p style={estilos.loading}>Cargando configuración...</p></div>;
   }
+
+  // Si después de cargar, no tiene permiso (ya se habría redirigido, pero como fallback)
+  if (permissionLevel !== 'total' && permissionLevel !== 'editar') {
+     return <div style={estilos.contenedor}><p style={estilos.loading}>Acceso denegado.</p></div>;
+  }
+
+  // Si configTurnos aún es null después de cargar (error inesperado)
+  if (!configTurnos) {
+      return <div style={estilos.contenedor}><p style={estilos.loading}>Error al cargar la configuración. Recarga la página.</p></div>;
+  }
+
 
   return (
     <div style={estilos.contenedor}>
+      {/* Botón Volver (Añadido) */}
+      <button onClick={() => router.push('/panel')} style={estilos.botonVolverAbsoluto}>
+        ← Volver
+      </button>
+
       <h1 style={estilos.titulo}>⏰ Turnos y Horarios</h1>
 
-      {/* Display error message if any */}
-      {error && <div style={estilos.errorBox}>{error}</div>}
+      {/* Indicador de Guardado */}
+      {savingConfig && <p style={estilos.savingIndicator}>Guardando...</p>}
 
       <div style={estilos.controlesDias}>
         {diasSemana.map(dia => (
@@ -190,8 +215,9 @@ export default function Seccion3() {
             onClick={() => toggleDiaVisible(dia)}
             style={{
               ...estilos.botonDia,
-              backgroundColor: configTurnos[dia]?.visible ? '#5CB85C' : '#D9534F' // Added safe navigation
+              backgroundColor: configTurnos[dia]?.visible ? '#5CB85C' : '#D9534F' // Añadir ?. por si acaso
             }}
+            disabled={savingConfig} // Deshabilitar mientras guarda
           >
             {dia} {configTurnos[dia]?.visible ? '▲' : '▼'}
           </button>
@@ -199,8 +225,8 @@ export default function Seccion3() {
       </div>
 
       {diasSemana.map((dia) => {
-        // Added safe navigation in case configTurnos is not fully loaded yet (though loading state should prevent this)
-        if (!configTurnos[dia]?.visible) return null;
+        // Asegurarse que configTurnos[dia] exista antes de acceder a 'visible'
+        if (!configTurnos[dia] || !configTurnos[dia].visible) return null;
 
         const todosDesactivados = configTurnos[dia].turnos.every(t => !t.activo);
         return (
@@ -210,6 +236,7 @@ export default function Seccion3() {
               <button
                 onClick={() => toggleDiaVisible(dia)}
                 style={estilos.botonOcultar}
+                disabled={savingConfig} // Deshabilitar mientras guarda
               >
                 Ocultar
               </button>
@@ -219,6 +246,7 @@ export default function Seccion3() {
               <button
                 style={estilos.botonActivar}
                 onClick={() => toggleTodos(dia)}
+                disabled={savingConfig} // Deshabilitar mientras guarda
               >
                 ✅ Reactivar todos los turnos
               </button>
@@ -226,19 +254,21 @@ export default function Seccion3() {
               <>
                 {configTurnos[dia].turnos.map((turno, index) => (
                   <div key={index} style={estilos.turnoRow}>
-                    <label>{turno.hora}</label>
+                    <label style={{minWidth: '50px'}}>{turno.hora}</label> {/* Ancho mínimo para alinear */}
                     <input
                       type="number"
                       value={turno.capacidad}
                       onChange={(e) => cambiarCapacidad(dia, index, e.target.value)}
                       style={estilos.input}
                       min="0"
+                      disabled={savingConfig} // Deshabilitar mientras guarda
                     />
                     <label style={estilos.checkboxLabel}>
                       <input
                         type="checkbox"
                         checked={turno.activo}
                         onChange={() => toggleTurno(dia, index)}
+                        disabled={savingConfig} // Deshabilitar mientras guarda
                       /> Activo
                     </label>
                   </div>
@@ -246,6 +276,7 @@ export default function Seccion3() {
                 <button
                   style={configTurnos[dia].turnos.every(t => t.activo) ? estilos.botonDesactivar : estilos.botonActivar}
                   onClick={() => toggleTodos(dia)}
+                  disabled={savingConfig} // Deshabilitar mientras guarda
                 >
                   {configTurnos[dia].turnos.every(t => t.activo)
                     ? "🚫 Desactivar todos los turnos"
@@ -257,13 +288,15 @@ export default function Seccion3() {
         );
       })}
 
-      <button style={estilos.botonVolver} onClick={() => window.location.href = '/admin'}> {/* Changed back link */}
+      {/* Botón Volver al Panel (ya no es absoluto) */}
+      {/* <button style={estilos.botonVolver} onClick={() => router.push('/panel')}>
         🔙 Volver al Panel Principal
-      </button>
+      </button> */}
     </div>
   );
 }
 
+// --- Estilos (Añadidos estilos para carga/guardado y botón volver absoluto) ---
 const estilos = {
   contenedor: {
     backgroundColor: "#0A1034",
@@ -271,23 +304,49 @@ const estilos = {
     minHeight: "100vh",
     padding: "2rem",
     fontFamily: "serif",
+    position: 'relative', // Para el botón volver absoluto
+  },
+  // <<< AÑADIDO: Botón Volver Absoluto >>>
+  botonVolverAbsoluto: {
+    position: 'absolute',
+    top: '1rem',
+    left: '1rem',
+    background: "#806C4F",
+    color: "#EFE4CF",
+    padding: "0.5rem 1rem",
+    borderRadius: "10px",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "bold",
+    zIndex: 10,
   },
   titulo: {
     fontSize: "2rem",
+    marginTop: '2rem', // Espacio para el botón volver
     marginBottom: "2rem",
     textAlign: "center",
     color: "#D3C6A3",
   },
-  // *** Style for error message ***
-  errorBox: {
-    backgroundColor: '#D9534F',
+  // <<< AÑADIDO: Estilos Carga/Guardado >>>
+  loading: {
     color: 'white',
-    padding: '0.8rem',
-    borderRadius: '8px',
     textAlign: 'center',
-    marginBottom: '1.5rem',
-    fontWeight: 'bold',
+    paddingTop: '2rem',
+    fontSize: '1.2rem'
   },
+  savingIndicator: {
+    position: 'fixed', // O 'absolute' si prefieres
+    top: '10px',
+    right: '10px',
+    background: 'rgba(255, 152, 0, 0.8)', // Naranja semitransparente
+    color: '#0A1034',
+    padding: '0.5rem 1rem',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    zIndex: 100,
+  },
+  // --- Estilos existentes (sin cambios) ---
   controlesDias: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -302,7 +361,12 @@ const estilos = {
     cursor: 'pointer',
     fontWeight: 'bold',
     color: 'white',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
+    // Estilo disabled se añade en línea o con clases
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    }
   },
   diaBox: {
     backgroundColor: "#1C2340",
@@ -326,7 +390,11 @@ const estilos = {
     border: '1px solid #EFE4CF',
     borderRadius: '6px',
     padding: '0.3rem 0.8rem',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    }
   },
   turnoRow: {
     display: "flex",
@@ -341,11 +409,16 @@ const estilos = {
     padding: "0.4rem",
     border: "none",
     width: "60px",
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    }
   },
   checkboxLabel: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem'
+    gap: '0.5rem',
+    // Estilo disabled se aplica al input checkbox directamente
   },
   botonDesactivar: {
     backgroundColor: "#D9534F",
@@ -355,6 +428,10 @@ const estilos = {
     padding: "0.4rem 1rem",
     cursor: "pointer",
     marginTop: "1rem",
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    }
   },
   botonActivar: {
     backgroundColor: "#5CB85C",
@@ -364,16 +441,21 @@ const estilos = {
     padding: "0.4rem 1rem",
     cursor: "pointer",
     marginTop: "1rem",
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    }
   },
-  botonVolver: {
-    backgroundColor: "#806C4F",
-    color: "#EFE4CF",
-    border: "none",
-    borderRadius: "12px",
-    padding: "0.6rem 1.2rem",
-    cursor: "pointer",
-    display: "block",
-    margin: "2rem auto 0",
-    fontSize: "1rem",
-  },
+  // Botón Volver al final (comentado, usamos el absoluto)
+  // botonVolver: {
+  //   backgroundColor: "#806C4F",
+  //   color: "#EFE4CF",
+  //   border: "none",
+  //   borderRadius: "12px",
+  //   padding: "0.6rem 1.2rem",
+  //   cursor: "pointer",
+  //   display: "block",
+  //   margin: "2rem auto 0",
+  //   fontSize: "1rem",
+  // },
 };
