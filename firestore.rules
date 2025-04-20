@@ -11,6 +11,7 @@ service cloud.firestore {
     function isOwnerOrAdmin() {
       // Asume rol 'Administrador' en /usuariosAura/{uid}
       let userDoc = get(/databases/$(database)/documents/usuariosAura/$(request.auth.uid));
+      // Verificar que el documento y el campo rol existan antes de comparar
       return isAuthenticated() && userDoc.data != null && userDoc.data.rol == 'Administrador';
     }
 
@@ -44,14 +45,14 @@ service cloud.firestore {
 
     // --- Colección Reservas ---
     match /reservasAura/{reservaId} {
-      allow read, update, delete: if isOwnerOrAdmin();
+      allow read, update, delete: if isOwnerOrAdmin(); // Solo Admin lee/modifica/borra
       // Regla simplificada (sin validación de capacidad aquí)
-      allow create: if isValidReservaData(request.resource.data);
+      allow create: if isValidReservaData(request.resource.data); // Solo valida datos
     }
 
     // --- Colección Usuarios ---
     match /usuariosAura/{userId} {
-      // *** REGLA CORREGIDA PARA PERMITIR LOGIN ***
+      // *** ¡¡LA CORRECCIÓN ESTÁ AQUÍ!! ***
       allow read: if isAuthenticated(); // Permite leer a CUALQUIER autenticado
 
       // Regla de escritura igual
@@ -59,6 +60,7 @@ service cloud.firestore {
     }
 
     // --- Otras Colecciones (REGLAS BÁSICAS) ---
+    // Estas reglas son permisivas, ajustarlas después del evento
     match /permisosAura/{docId} { allow read, write: if isOwnerOrAdmin(); }
     match /ventasAura/{ventaId} { allow read, write: if isAuthenticated(); }
     match /turnosCajaAura/{turnoId} { allow read, write: if isAuthenticated(); }
