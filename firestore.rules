@@ -1,8 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwnerOrAdmin() {
+      // Asume rol 'Administrador' en /usuariosAura/{uid}
+      let userDoc = get(/databases/$(database)/documents/usuariosAura/$(request.auth.uid));
+      return isAuthenticated() && userDoc.data != null && userDoc.data.rol == 'Administrador';
+    }
+
+    // --- Funciones de Validación para Crear Reserva ---
+    function isValidReservaData(data) {
+      return data.nombre is string && data.nombre.size() > 0 &&
+             data.fecha is string && data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.horario is string && data.horario.size() > 0 &&
+             data.diaSemana is string && data.diaSemana.size() > 0 &&
+             (data.personas is number || data.personas == "Evento Privado") &&
+             (data.personas == "Evento Privado" || data.personas > 0) &&
+             data.dni is string && data.dni.size() > 0 &&
+             data.nacimiento is string && data.nacimiento.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.email is string && data.email.size() > 0 &&
+             data.telefono is string && data.telefono.size() > 0 &&
+             data.estado == "confirmada" &&
+             data.fechaCreacion == request.time;
+    }
+
+    // --- Colección Configuracion ---
+    match /configuracionAura/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwnerOrAdmin();
+    }
+
+    // --- Colección Contadores de Ocupación ---
+    match /ocupacionTurnos/{contadorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // --- Colección Reservas ---
+    match /reservasAura/{reservaId} {
+      allow read, update, delete: if isOwnerOrAdmin();
+      // Regla simplificada (sin validación de capacidad aquí)
+      allow create: if isValidReservaData(request.resource.data);
+    }
+
     // --- Colección Usuarios ---
     match /usuariosAura/{userId} {
-      // Permite leer a CUALQUIER autenticado (como hicimos para el login)
-      allow read: if isAuthenticated();
+      // *** REGLA CORREGIDA PARA PERMITIR LOGIN ***
+      allow read: if isAuthenticated(); // Permite leer a CUALQUIER autenticado
 
       // Regla de escritura igual
       allow write: if isAuthenticated() && (request.auth.uid == userId || isOwnerOrAdmin());
     }
+
+    // --- Otras Colecciones (REGLAS BÁSICAS) ---
+    match /permisosAura/{docId} { allow read, write: if isOwnerOrAdmin(); }
+    match /ventasAura/{ventaId} { allow read, write: if isAuthenticated(); }
+    match /turnosCajaAura/{turnoId} { allow read, write: if isAuthenticated(); }
+    match /movimientosCajaAura/{movId} { allow read, write: if isAuthenticated(); }
+    match /articulosAura/{articuloId} { allow read, write: if isAuthenticated(); }
+    match /recetasAura/{recetaId} { allow read, write: if isAuthenticated(); }
+
+  } // Cierre de 'match /databases/{database}/documents'
+} // Cierre de 'service cloud.firestore'
