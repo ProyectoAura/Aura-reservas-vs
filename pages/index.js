@@ -16,47 +16,47 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
   const inputRef = useRef(null);
-
+  const [error, setError] = useState(""); // <<< AÑADIR ESTA LÍNEA
+  
   const accederAdmin = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "usuariosAura"));
-      const usuariosGuardados = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setError(''); // Limpiar errores previos
+    console.log("Intentando acceder..."); // Log para depuración
 
-      // <<< ¡¡¡CORRECCIÓN APLICADA AQUÍ!!! >>>
-      const usuarioMadre = {
-        id: "ADMIN_MADRE", // ID único para el usuario madre
-        nombre: "admin",
-        dni: "0000",
-        contraseña: "Aura2025",
-        rol: "Administrador"
-      };
-      // <<< FIN CORRECCIÓN >>>
+    // *** INICIO: MODIFICACIÓN DE EMERGENCIA EXTREMA ***
 
-      const todosLosUsuarios = [usuarioMadre, ...usuariosGuardados];
+    // 1. Verificar el caso especial del DUEÑO PRIMERO
+    if (!dni && password === 'Aura2025') {
+        console.log("Acceso de Dueño (EMERGENCIA) detectado.");
+        // Simular datos del dueño (ajusta si es necesario)
+        const datosDueño = {
+            // Necesitamos un UID aunque sea ficticio para que isOwnerOrAdmin funcione en otras partes
+            // Busca tu UID real en Firebase Auth > Users y ponlo aquí si puedes
+            id: 'TU_UID_REAL_DE_ADMIN_AQUI', // <<< ¡¡PON TU UID REAL SI LO SABES!!
+            nombre: 'Administrador Dueño',
+            rol: 'Administrador',
+            contraseña: 'Aura2025' // Para que isOwner funcione en otras partes
+        };
 
-      const usuarioValido = todosLosUsuarios.find((u) => {
-        // Permitir acceso al usuario madre si solo se ingresa la contraseña madre
-        // Asegurarse que la comparación sea estricta
-        if (!dni && u.contraseña === password && u.id === "ADMIN_MADRE") return true;
-        // Acceso normal por DNI y contraseña
-        return u.dni === dni && u.contraseña === password;
-      });
-
-      if (usuarioValido) {
-        localStorage.setItem("adminAutorizado", "true");
-        Cookies.set("adminAutorizado", "true");
-        localStorage.setItem("rolActivo", usuarioValido.rol);
-        // Ahora usuarioValido (sea madre o de DB) siempre tendrá un 'id'
-        localStorage.setItem("usuarioAura", JSON.stringify(usuarioValido));
-        router.push("/panel");
-      } else {
-        alert("DNI o contraseña incorrectos");
-      }
-    } catch (e) {
-      console.error("Error al acceder:", e);
-      alert("Error al intentar ingresar. Intenta nuevamente.");
+        try {
+            localStorage.setItem("usuarioAura", JSON.stringify(datosDueño));
+            localStorage.setItem("adminAutorizado", "true");
+            Cookies.set("adminAutorizado", "true", { expires: 1 }); // Cookie por 1 día
+            console.log("Datos de dueño guardados, redirigiendo...");
+            router.push("/panel"); // O '/admin'
+        } catch (storageError) {
+            console.error("Error guardando en localStorage/Cookies:", storageError);
+            setError("Error interno al iniciar sesión.");
+        }
+        return; // Salir de la función
     }
-  };
+
+    // 2. Si NO es el dueño, bloquear temporalmente CUALQUIER otro intento
+    console.log("Credenciales no coinciden con dueño. Bloqueando acceso temporal.");
+    setError("Acceso denegado. Verifica tus credenciales o contacta al soporte.");
+    // NO intentar leer Firestore aquí para evitar errores de permiso
+
+    // *** FIN: MODIFICACIÓN DE EMERGENCIA EXTREMA ***
+};
 
   useEffect(() => {
     if (showAdmin && inputRef.current) {
