@@ -52,7 +52,7 @@ service cloud.firestore {
 
     // --- Colección Usuarios ---
     match /usuariosAura/{userId} {
-      // *** ¡¡LA CORRECCIÓN ESTÁ AQUÍ!! ***
+      // *** ¡¡ESTA ES LA REGLA CORRECTA PARA PERMITIR LOGIN!! ***
       allow read: if isAuthenticated(); // Permite leer a CUALQUIER autenticado
 
       // Regla de escritura igual
