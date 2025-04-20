@@ -1,10 +1,8 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // ¡¡REGLA TEMPORAL INSEGURA PARA EMERGENCIA!!
-    // Permite a cualquier usuario autenticado leer y escribir TODO.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // --- Colección Usuarios ---
+    match /usuariosAura/{userId} {
+      // Permite leer a CUALQUIER autenticado (como hicimos para el login)
+      allow read: if isAuthenticated();
+
+      // Regla de escritura igual
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isOwnerOrAdmin());
     }
-  }
-}
